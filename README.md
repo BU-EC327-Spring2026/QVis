@@ -1,2 +1,2 @@
 # QVis
-Quantum Circuit visualizer for visualizing a
+Quantum Circuit visualizer
