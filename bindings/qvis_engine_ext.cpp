@@ -3,6 +3,7 @@
 #include <pybind11/stl.h>
 #include "state_vector.h"
 #include "gates.h"
+#include "measurement.h"
 
 namespace py = pybind11;
 
@@ -28,4 +29,6 @@ PYBIND11_MODULE(qvis_engine_ext, m) {
         .def("__len__", &qvis::StateVector::dimension);
 
     m.def("hadamard", &qvis::hadamard, "Returns the 2x2 Hadamard gate matrix");
+    m.def("sample", &qvis::sample, py::arg("sv"), py::arg("shots"),
+          "Sample the state vector, returning bitstring counts");
 }
