@@ -1,6 +1,7 @@
 #ifndef QVIS_STATE_VECTOR_H
 #define QVIS_STATE_VECTOR_H
 
+#include <array>
 #include <complex>
 #include <cstddef>
 #include <vector>
@@ -13,6 +14,7 @@ namespace qvis {
 class StateVector {
 public:
     using Amplitude = std::complex<double>;
+    using Gate2x2 = std::array<std::array<Amplitude, 2>, 2>;
 
     /// Construct the |0...0⟩ state for n qubits.
     explicit StateVector(std::size_t num_qubits);
@@ -28,6 +30,11 @@ public:
 
     /// Mutable access to amplitude at basis state index.
     Amplitude& operator[](std::size_t index);
+
+    /// Apply a 2x2 gate matrix to the given target qubit.
+    /// Uses the tensor product structure: iterates over basis state pairs
+    /// that differ only in the target qubit bit.
+    void apply(const Gate2x2& matrix, std::size_t target_qubit);
 
     /// Raw pointer to amplitudes (for engine internals).
     const Amplitude* data() const;

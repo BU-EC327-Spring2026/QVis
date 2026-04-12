@@ -12,6 +12,11 @@ PYBIND11_MODULE(qvis_engine_ext, m) {
         .def(py::init<std::size_t>(), py::arg("num_qubits"))
         .def("num_qubits", &qvis::StateVector::num_qubits)
         .def("dimension", &qvis::StateVector::dimension)
+        .def("apply", [](qvis::StateVector& sv,
+                         std::array<std::array<std::complex<double>, 2>, 2> mat,
+                         std::size_t target_qubit) {
+            sv.apply(mat, target_qubit);
+        }, py::arg("matrix"), py::arg("target_qubit"))
         .def("__getitem__", [](const qvis::StateVector& sv, std::size_t i) {
             return sv[i];
         })
