@@ -30,6 +30,6 @@ wheel.install-dir = "bindings"
 BUILD_PYTHON_BINDINGS = "ON"
 
 [tool.pytest.ini_options]
-testpaths = ["backend/tests"]
+testpaths = ["backend/tests", "bindings/tests"]
 asyncio_mode = "auto"
 addopts = "-p no:anyio"
