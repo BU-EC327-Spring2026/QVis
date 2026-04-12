@@ -2,6 +2,7 @@
 #include <pybind11/complex.h>
 #include <pybind11/stl.h>
 #include "state_vector.h"
+#include "gates.h"
 
 namespace py = pybind11;
 
@@ -25,4 +26,6 @@ PYBIND11_MODULE(qvis_engine_ext, m) {
             sv[i] = val;
         })
         .def("__len__", &qvis::StateVector::dimension);
+
+    m.def("hadamard", &qvis::hadamard, "Returns the 2x2 Hadamard gate matrix");
 }
