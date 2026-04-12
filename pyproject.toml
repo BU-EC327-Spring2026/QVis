@@ -1,0 +1,32 @@
+[build-system]
+requires = ["scikit-build-core>=0.9", "pybind11>=2.12"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "qvis"
+version = "0.1.0"
+description = "QVis — Quantum Circuit Simulator"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+]
+
+[tool.scikit-build]
+cmake.source-dir = "engine"
+cmake.build-type = "Release"
+build-dir = "engine/build/{build_type}"
+wheel.install-dir = "bindings"
+
+[tool.scikit-build.cmake.define]
+BUILD_PYTHON_BINDINGS = "ON"
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
