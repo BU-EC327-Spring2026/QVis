@@ -1,17 +1,42 @@
 import * as d3 from "d3";
 
+const CIRCUITS = [
+  {
+    name: "Coin Flip (Hadamard)",
+    circuit: [{ gate: "h", targets: [0] }],
+    shots: 1000,
+    caption:
+      "A Hadamard gate puts a qubit into a 50/50 superposition. After 1000 measurements, you should see roughly equal counts of 0 and 1.",
+  },
+];
+
 const app = document.querySelector("#app");
 
 app.innerHTML = `
   <h1>QVis — Quantum Circuit Simulator</h1>
+  <select id="circuit-select">
+    ${CIRCUITS.map((c, i) => `<option value="${i}">${c.name}</option>`).join("")}
+  </select>
+  <p id="caption"></p>
   <button id="run-btn">Run</button>
   <div id="histogram"></div>
 `;
 
+const select = document.querySelector("#circuit-select");
+const caption = document.querySelector("#caption");
 const btn = document.querySelector("#run-btn");
 const histogramDiv = document.querySelector("#histogram");
 
+function updateCaption() {
+  caption.textContent = CIRCUITS[select.selectedIndex].caption;
+}
+
+select.addEventListener("change", updateCaption);
+updateCaption();
+
 btn.addEventListener("click", async () => {
+  const selected = CIRCUITS[select.selectedIndex];
+
   btn.disabled = true;
   btn.textContent = "Running…";
   histogramDiv.innerHTML = "";
@@ -21,8 +46,8 @@ btn.addEventListener("click", async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        circuit: [{ gate: "h", targets: [0] }],
-        shots: 1000,
+        circuit: selected.circuit,
+        shots: selected.shots,
       }),
     });
 
