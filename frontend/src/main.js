@@ -20,6 +20,23 @@ const CIRCUITS = [
   },
 ];
 
+// --- Plain-English step labels -----------------------------------------------
+// Maps technical backend labels to friendly descriptions for the UI.
+
+const FRIENDLY_LABELS = {
+  "Initial state": "All qubits start at |0⟩",
+  "H on qubit 0": "Put qubit 0 in superposition",
+  "H on qubit 1": "Put qubit 1 in superposition",
+  "X on qubit 0": "Flip qubit 0",
+  "X on qubit 1": "Flip qubit 1",
+  "CX on qubits 0, 1": "Link the two qubits together",
+  "CX on qubits 1, 0": "Link the two qubits together",
+};
+
+function friendlyLabel(backendLabel) {
+  return FRIENDLY_LABELS[backendLabel] || backendLabel;
+}
+
 // --- Phase-to-color mapping --------------------------------------------------
 // 0 rad = cyan, π/2 = green, π = red, -π/2 = purple
 function phaseToColor(radians) {
@@ -185,7 +202,7 @@ function stopPlay() {
 function updateControls() {
   stepBackBtn.disabled = currentStep === 0;
   stepFwdBtn.disabled = currentStep === steps.length - 1;
-  stepLabel.textContent = steps[currentStep].label;
+  stepLabel.textContent = friendlyLabel(steps[currentStep].label);
 
   if (currentStep === steps.length - 1) {
     measureBtn.classList.remove("hidden");
