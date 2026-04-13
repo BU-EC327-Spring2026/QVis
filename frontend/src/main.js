@@ -8,6 +8,16 @@ const CIRCUITS = [
     caption:
       "A Hadamard gate puts a qubit into a 50/50 superposition. After 1000 measurements, you should see roughly equal counts of 0 and 1.",
   },
+  {
+    name: "Bell State (Entanglement)",
+    circuit: [
+      { gate: "h", targets: [0] },
+      { gate: "cx", targets: [0, 1] },
+    ],
+    shots: 1000,
+    caption:
+      "A Hadamard on qubit 0 creates a superposition, then a CNOT entangles qubits 0 and 1. The result is a Bell state: only |00⟩ and |11⟩ survive at 50% each — the qubits are perfectly correlated.",
+  },
 ];
 
 // --- Phase-to-color mapping --------------------------------------------------
