@@ -36,6 +36,12 @@ public:
     /// that differ only in the target qubit bit.
     void apply(const Gate2x2& matrix, std::size_t target_qubit);
 
+    /// Apply a 2x2 gate matrix to the target qubit, controlled by the
+    /// control qubit. The gate is only applied to basis states where the
+    /// control qubit is |1⟩.
+    void apply_controlled(const Gate2x2& matrix, std::size_t control_qubit,
+                          std::size_t target_qubit);
+
     /// Raw pointer to amplitudes (for engine internals).
     const Amplitude* data() const;
     Amplitude* data();

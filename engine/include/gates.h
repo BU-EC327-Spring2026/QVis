@@ -15,6 +15,19 @@ inline StateVector::Gate2x2 hadamard() {
     }};
 }
 
+/// Returns the 2x2 Pauli-X (NOT) matrix: [[0, 1], [1, 0]]
+inline StateVector::Gate2x2 pauli_x() {
+    return {{
+        {{{0.0, 0.0}, {1.0, 0.0}}},
+        {{{1.0, 0.0}, {0.0, 0.0}}}
+    }};
+}
+
+/// Apply a CNOT gate: flips target qubit when control qubit is |1⟩.
+inline void cnot(StateVector& sv, std::size_t control, std::size_t target) {
+    sv.apply_controlled(pauli_x(), control, target);
+}
+
 } // namespace qvis
 
 #endif // QVIS_GATES_H
