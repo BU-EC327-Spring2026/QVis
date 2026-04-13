@@ -25,6 +25,19 @@ h1 {
   color: #ffffff;
 }
 
+h2 {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+  color: #ffffff;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* --- Setup panel ---------------------------------------------------------- */
+
 #circuit-select {
   background: #16213e;
   color: #e0e0e0;
@@ -66,8 +79,133 @@ h1 {
   cursor: not-allowed;
 }
 
-#histogram {
-  margin-top: 1.5rem;
+/* --- Evolution panel ------------------------------------------------------ */
+
+#evolution {
+  margin-top: 0.5rem;
+}
+
+#step-label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #00d4ff;
+  text-align: center;
+  margin-bottom: 0.8rem;
+}
+
+#state-chart svg {
+  display: block;
+  margin: 0 auto;
+}
+
+/* D3 axes */
+.axis line,
+.axis path {
+  stroke: #555;
+}
+
+.axis text {
+  fill: #aaa;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.bar-label {
+  fill: #e0e0e0;
+  font-size: 11px;
+  font-family: inherit;
+}
+
+/* --- Phase legend --------------------------------------------------------- */
+
+.phase-legend {
+  display: flex;
+  justify-content: center;
+  gap: 1.2rem;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.phase-legend span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.phase-legend i {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+/* --- Step controls -------------------------------------------------------- */
+
+.step-controls {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.step-controls button {
+  background: #16213e;
+  color: #e0e0e0;
+  border: 1px solid #444;
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.step-controls button:hover:not(:disabled) {
+  background: #1f3460;
+  border-color: #00d4ff;
+}
+
+.step-controls button:disabled {
+  color: #555;
+  cursor: not-allowed;
+}
+
+/* --- Measure button ------------------------------------------------------- */
+
+#measure-btn {
+  display: block;
+  margin: 0 auto 1.5rem;
+  background: #e6a817;
+  color: #1a1a2e;
+  border: none;
+  padding: 0.5rem 1.6rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+#measure-btn:hover {
+  background: #f0be3a;
+}
+
+/* --- Measurement histogram ------------------------------------------------ */
+
+#measurement {
+  margin-top: 1rem;
+}
+
+#measurement h2 {
+  text-align: center;
+}
+
+#histogram svg {
+  display: block;
+  margin: 0 auto;
 }
 
 .bar rect {
