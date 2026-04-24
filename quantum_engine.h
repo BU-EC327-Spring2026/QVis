@@ -84,11 +84,12 @@ struct Protocol {
     std::vector<std::string> qubit_labels; // e.g. {"Alice","Bob","Charlie"}
 };
 
-// Build the three core protocols. Returns fully populated Protocol.
+// Build the core protocols. Returns fully populated Protocol.
 Protocol make_bell_state();
 Protocol make_teleportation();
 Protocol make_grover_2qubit();
-Protocol make_deutsch_jozsa();  // bonus
+Protocol make_grover_3qubit();
+Protocol make_deutsch_jozsa();
 
 // ── JSON serialization ──────────────────────────────────────────
 // Serialize a Protocol to a compact JSON string for the REST endpoint.

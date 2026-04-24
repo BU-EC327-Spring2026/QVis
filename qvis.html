@@ -227,6 +227,64 @@ svg#circuit-svg {
   color: var(--accent2);
 }
 
+#ibm-btn {
+  background: rgba(0,122,255,0.12);
+  border-color: rgba(0,122,255,0.5);
+  color: #60a5fa;
+  gap: 6px;
+}
+#ibm-btn:hover { background: rgba(0,122,255,0.22); border-color: #60a5fa; color: #93c5fd; }
+
+/* Zoom controls */
+.zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.zoom-btn {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg2);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.06em;
+}
+.zoom-btn:hover { border-color: var(--accent); color: var(--text); }
+#zoom-label {
+  min-width: 38px;
+  text-align: center;
+  margin: 0 2px;
+}
+
+/* Toast notification */
+#qasm-toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--bg3);
+  border: 1px solid rgba(0,122,255,0.5);
+  border-radius: var(--r);
+  padding: 10px 20px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: #60a5fa;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 999;
+  white-space: nowrap;
+}
+#qasm-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 .step-counter {
   font-family: var(--mono);
   font-size: 0.72rem;
@@ -433,10 +491,13 @@ svg#circuit-svg {
   border: 1px solid var(--border);
   border-radius: var(--r);
   background: var(--bg3);
-  cursor: default;
+  cursor: pointer;
   transition: border-color 0.2s;
+  text-decoration: none;
+  color: inherit;
+  display: block;
 }
-.zoo-card:hover { border-color: var(--border2); }
+.zoo-card:hover { border-color: var(--accent); }
 .zoo-card.highlighted { border-color: var(--accent); }
 .zoo-name {
   font-family: var(--mono);
@@ -472,8 +533,13 @@ svg#circuit-svg {
 <header>
   <div class="logo">QV<span>is</span></div>
   <div class="header-tag">EC327 · Spring 2026</div>
-  <div class="header-tag" style="margin-left:auto; color: var(--accent); border-color: var(--accent);">Quantum Protocol Explorer</div>
+  <div class="header-tag" style="color: var(--accent); border-color: var(--accent);">Quantum Protocol Explorer</div>
   <div class="header-tag" id="engine-badge" style="color:var(--text-muted)">Engine: JS</div>
+  <div class="zoom-control">
+    <button class="zoom-btn" id="zoom-out" title="Zoom out">A−</button>
+    <span class="header-tag" id="zoom-label">100%</span>
+    <button class="zoom-btn" id="zoom-in" title="Zoom in">A+</button>
+  </div>
 </header>
 
 <div id="protocol-bar"></div>
@@ -497,6 +563,7 @@ svg#circuit-svg {
       <button class="ctrl-btn primary" id="btn-next" title="Next step">Next →</button>
       <div class="step-dots" id="step-dots"></div>
       <div class="step-counter"><em id="step-num">—</em> / <em id="step-total">—</em></div>
+      <button class="ctrl-btn" id="ibm-btn" title="Copy QASM and open IBM Quantum Composer">Run on IBM ↗</button>
     </div>
   </div>
 
@@ -527,6 +594,7 @@ svg#circuit-svg {
 </div>
 
 </div><!-- #app -->
+<div id="qasm-toast">QASM copied — paste it into the IBM editor</div>
 
 <script>
 // ════════════════════════════════════════════════════════════════
@@ -747,6 +815,72 @@ function buildDeutsch() {
   };
 }
 
+function buildGrover3() {
+  const n = 3;
+  const sv = makeVec(n); sv[0] = {re:1, im:0};
+  const steps = [];
+
+  steps.push(step(sv, n, 'INIT', -1, -1,
+    'Three qubits start in |000⟩. Goal: find the marked item |111⟩ in a database of 8. ' +
+    'Classical worst case: 8 queries. Grover\'s algorithm needs only 2 — a √8 ≈ 2.8× speedup.',
+    '|ψ⟩ = |000⟩'));
+
+  applySingle(sv,n,0,GATE.H); applySingle(sv,n,1,GATE.H); applySingle(sv,n,2,GATE.H);
+  steps.push(step(sv, n, 'H⊗H⊗H', 0, -1,
+    'Hadamard on all 3 qubits creates a uniform superposition over all 8 states. ' +
+    'Each of |000⟩ through |111⟩ has exactly 12.5% probability. ' +
+    'The computer now considers all 8 database entries simultaneously.',
+    '(|000⟩+|001⟩+…+|111⟩)/√8'));
+
+  // Oracle: phase-flip |111⟩ (index 7)
+  sv[7] = {re: -sv[7].re, im: -sv[7].im};
+  steps.push(step(sv, n, 'Oracle', -1, -1,
+    'The oracle marks |111⟩ by flipping its phase. Probabilities look identical — the change ' +
+    'is hidden in the sign of the amplitude. This is one quantum query acting on all 8 states at once.',
+    '(|000⟩+…−|111⟩)/√8'));
+
+  // Diffusion: inversion about the mean
+  const dim3 = sv.length;
+  let mRe = sv.reduce((s,c)=>s+c.re,0)/dim3, mIm = sv.reduce((s,c)=>s+c.im,0)/dim3;
+  for(let i=0;i<dim3;i++) sv[i]={re:2*mRe-sv[i].re, im:2*mIm-sv[i].im};
+  steps.push(step(sv, n, 'Diffusion', -1, -1,
+    'Grover diffusion (inversion about the mean) amplifies |111⟩ and suppresses the rest. ' +
+    'After just one oracle+diffusion cycle, |111⟩ has ~78% probability. ' +
+    'A second iteration will push it past 94%.',
+    'P(|111⟩) ≈ 78% after 1 iteration'));
+
+  // Oracle again
+  sv[7] = {re: -sv[7].re, im: -sv[7].im};
+  steps.push(step(sv, n, 'Oracle ×2', -1, -1,
+    'Second oracle query: phase-flip |111⟩ again. This is the full quantum budget — ' +
+    '2 queries for 8 items, vs 8 classically. The phase difference is now even more pronounced.',
+    'Phase flip ×2'));
+
+  // Diffusion again
+  mRe = sv.reduce((s,c)=>s+c.re,0)/dim3; mIm = sv.reduce((s,c)=>s+c.im,0)/dim3;
+  for(let i=0;i<dim3;i++) sv[i]={re:2*mRe-sv[i].re, im:2*mIm-sv[i].im};
+  steps.push(step(sv, n, 'Diffusion ×2', -1, -1,
+    'Second diffusion round. |111⟩ now has ~94.5% probability — one measurement almost ' +
+    'certainly finds the answer. This is the quantum advantage: 2 queries vs 8 classical.',
+    'P(|111⟩) ≈ 94.5% — answer found in 2 queries!'));
+
+  return {
+    id:'grover3', name:"Grover's (3-Qubit)", n_qubits:n,
+    qubit_labels:['q0','q1','q2'],
+    description:'Find |111⟩ in an 8-item database using 2 queries instead of 8. ' +
+                'Demonstrates Grover\'s O(√N) advantage with a third qubit the C++ engine handles natively.',
+    speedup:{classical:'O(N)', quantum:'O(√N)', example:'8 items → 2 queries'},
+    steps: steps.map((s,i)=>({...s,index:i,total:steps.length})),
+    circuit:[
+      {type:'h',qubit:0,col:1},{type:'h',qubit:1,col:1},{type:'h',qubit:2,col:1},
+      {type:'oracle',qubits:[0,1,2],col:2},
+      {type:'diffusion',qubits:[0,1,2],col:3},
+      {type:'oracle',qubits:[0,1,2],col:4},
+      {type:'diffusion',qubits:[0,1,2],col:5},
+    ]
+  };
+}
+
 // ── Backend integration ──────────────────────────────────────────
 // these variables track whether the Flask server is reachable and what engine it's using.
 // port 8080 avoids conflict with macOS AirPlay Receiver (which squats port 5000).
@@ -792,6 +926,17 @@ const PROTOCOL_META = {
       {type:'oracle-dj',ctrl:0,tgt:1,col:2},
       {type:'h',qubit:0,col:3},
       {type:'measure',qubit:0,col:4},
+    ]
+  },
+  grover3: {
+    id: 'grover3', name: "Grover's (3-Qubit)", n_qubits: 3, n_steps: 6,
+    speedup: {classical:'O(N)', quantum:'O(√N)', example:'8 items → 2 queries'},
+    circuit: [
+      {type:'h',qubit:0,col:1},{type:'h',qubit:1,col:1},{type:'h',qubit:2,col:1},
+      {type:'oracle',qubits:[0,1,2],col:2},
+      {type:'diffusion',qubits:[0,1,2],col:3},
+      {type:'oracle',qubits:[0,1,2],col:4},
+      {type:'diffusion',qubits:[0,1,2],col:5},
     ]
   },
 };
@@ -856,20 +1001,20 @@ async function fetchProtocol(pid) {
 // run the local JS simulation for a given protocol id.
 // this is the original simulation code, kept as a fallback.
 function buildLocal(pid) {
-  const builders = {bell: buildBell, teleport: buildTeleport, grover: buildGrover, deutsch: buildDeutsch};
+  const builders = {bell: buildBell, teleport: buildTeleport, grover: buildGrover, deutsch: buildDeutsch, grover3: buildGrover3};
   return builders[pid] ? builders[pid]() : null;
 }
 
 // ── Algorithm Zoo data ────────────────────────────────────────────
 const ZOO_ENTRIES = [
-  {name:"Shor's Factoring",speedup:"Superpolynomial",desc:"Factor N-bit integers. Breaks RSA. Needs ~2000 logical qubits for 2048-bit RSA."},
-  {name:"Grover's Search",speedup:"Polynomial (quadratic)",desc:"O(√N) vs O(N). Used in this visualizer. Basis of quantum collision finding."},
-  {name:"Deutsch-Jozsa",speedup:"Exponential (oracular)",desc:"O(1) vs O(N/2). Shown in this visualizer. First proven quantum speedup (1992)."},
-  {name:"HHL Linear Systems",speedup:"Exponential (sparse)",desc:"Solve Ax=b in O(log N). Exponential speedup over classical Gaussian elimination."},
-  {name:"Quantum Simulation",speedup:"Superpolynomial",desc:"Simulate quantum systems. Feynman's original motivation for quantum computers."},
-  {name:"QAOA",speedup:"Superpolynomial",desc:"Quantum Approximate Optimization. Combinatorial optimization via variational circuits."},
-  {name:"QFT / Phase Est.",speedup:"Superpolynomial",desc:"Quantum Fourier Transform. Core subroutine of Shor's algorithm and many others."},
-  {name:"Bernstein-Vazirani",speedup:"Polynomial",desc:"Find hidden string in 1 query vs N. Related to Grover; uses Hadamard interference."},
+  {name:"Shor's Factoring",speedup:"Superpolynomial",desc:"Factor N-bit integers. Breaks RSA. Needs ~2000 logical qubits for 2048-bit RSA.",link:"https://quantumalgorithmzoo.org/#shor"},
+  {name:"Grover's Search",speedup:"Polynomial (quadratic)",desc:"O(√N) vs O(N). Used in this visualizer. Basis of quantum collision finding.",link:"https://quantumalgorithmzoo.org/#grover"},
+  {name:"Deutsch-Jozsa",speedup:"Exponential (oracular)",desc:"O(1) vs O(N/2). Shown in this visualizer. First proven quantum speedup (1992).",link:"https://quantumalgorithmzoo.org/#deutsch"},
+  {name:"HHL Linear Systems",speedup:"Exponential (sparse)",desc:"Solve Ax=b in O(log N). Exponential speedup over classical Gaussian elimination.",link:"https://quantumalgorithmzoo.org/#hhl"},
+  {name:"Quantum Simulation",speedup:"Superpolynomial",desc:"Simulate quantum systems. Feynman's original motivation for quantum computers.",link:"https://quantumalgorithmzoo.org/#simulation"},
+  {name:"QAOA",speedup:"Superpolynomial",desc:"Quantum Approximate Optimization. Combinatorial optimization via variational circuits.",link:"https://quantumalgorithmzoo.org/#qaoa"},
+  {name:"QFT / Phase Est.",speedup:"Superpolynomial",desc:"Quantum Fourier Transform. Core subroutine of Shor's algorithm and many others.",link:"https://quantumalgorithmzoo.org/#qft"},
+  {name:"Bernstein-Vazirani",speedup:"Polynomial",desc:"Find hidden string in 1 query vs N. Related to Grover; uses Hadamard interference.",link:"https://quantumalgorithmzoo.org/#bv"},
 ];
 
 // ── State ────────────────────────────────────────────────────────
@@ -1238,6 +1383,11 @@ async function init() {
   document.getElementById('btn-next').onclick = ()=>gotoStep(currentStep+1);
   document.getElementById('btn-reset').onclick = ()=>gotoStep(0);
 
+  // Zoom controls
+  document.getElementById('zoom-in').onclick  = ()=>{ if(zoomIdx<ZOOM_LEVELS.length-1){zoomIdx++;applyZoom();} };
+  document.getElementById('zoom-out').onclick = ()=>{ if(zoomIdx>0){zoomIdx--;applyZoom();} };
+  applyZoom();
+
   // Keyboard navigation
   document.addEventListener('keydown', e=>{
     if (!currentProtocol) return;
@@ -1250,9 +1400,12 @@ async function init() {
   // Zoo strip
   const zoo = document.getElementById('zoo-panel');
   ZOO_ENTRIES.forEach(e=>{
-    const card = document.createElement('div');
+    const card = document.createElement('a');
     card.className = 'zoo-card';
-    card.innerHTML = `<div class="zoo-name">${e.name}</div>
+    card.href = e.link;
+    card.target = '_blank';
+    card.rel = 'noopener noreferrer';
+    card.innerHTML = `<div class="zoo-name">${e.name} <span style="color:var(--text-muted);font-size:0.55rem">↗</span></div>
       <div class="zoo-speedup">↑ ${e.speedup}</div>
       <div class="zoo-desc">${e.desc}</div>`;
     zoo.appendChild(card);
@@ -1261,6 +1414,123 @@ async function init() {
   // load the bell state protocol on startup (no await — let it render in background)
   loadProtocol('bell');
 }
+
+// ── Zoom control ─────────────────────────────────────────────────
+const ZOOM_LEVELS = [0.75, 1.0, 1.25, 1.5, 2.0];
+let zoomIdx = 1;
+
+function applyZoom() {
+  const z = ZOOM_LEVELS[zoomIdx];
+  document.getElementById('workspace').style.zoom = z;
+  document.getElementById('zoom-label').textContent = Math.round(z * 100) + '%';
+  document.getElementById('zoom-out').disabled = (zoomIdx === 0);
+  document.getElementById('zoom-in').disabled  = (zoomIdx === ZOOM_LEVELS.length - 1);
+  if (currentProtocol) {
+    initProbChart(currentProtocol.n_qubits);
+    updateProbChart(currentProtocol.steps[currentStep].probs);
+  }
+}
+
+// ── IBM Quantum integration ───────────────────────────────────────
+const QASM = {
+  bell: `OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+h q[0];
+cx q[0],q[1];
+measure q[0] -> c[0];
+measure q[1] -> c[1];`,
+
+  teleport: `OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[3];
+creg c[3];
+h q[1];
+cx q[1],q[2];
+cx q[0],q[1];
+h q[0];
+measure q[0] -> c[0];
+measure q[1] -> c[1];
+if(c==1) x q[2];
+if(c==2) z q[2];`,
+
+  grover: `OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+h q[0];
+h q[1];
+cz q[0],q[1];
+h q[0];
+h q[1];
+x q[0];
+x q[1];
+h q[1];
+cx q[0],q[1];
+h q[1];
+x q[0];
+x q[1];
+h q[0];
+h q[1];
+measure q[0] -> c[0];
+measure q[1] -> c[1];`,
+
+  grover3: `OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[3];
+creg c[3];
+h q[0];
+h q[1];
+h q[2];
+h q[2]; ccx q[0],q[1],q[2]; h q[2];
+h q[0]; h q[1]; h q[2];
+x q[0]; x q[1]; x q[2];
+h q[2]; ccx q[0],q[1],q[2]; h q[2];
+x q[0]; x q[1]; x q[2];
+h q[0]; h q[1]; h q[2];
+h q[2]; ccx q[0],q[1],q[2]; h q[2];
+h q[0]; h q[1]; h q[2];
+x q[0]; x q[1]; x q[2];
+h q[2]; ccx q[0],q[1],q[2]; h q[2];
+x q[0]; x q[1]; x q[2];
+h q[0]; h q[1]; h q[2];
+measure q[0] -> c[0];
+measure q[1] -> c[1];
+measure q[2] -> c[2];`,
+
+  deutsch: `OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[1];
+x q[1];
+h q[0];
+h q[1];
+cx q[0],q[1];
+h q[0];
+measure q[0] -> c[0];`,
+};
+
+function showToast(msg) {
+  const t = document.getElementById('qasm-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+document.getElementById('ibm-btn').addEventListener('click', () => {
+  if (!currentProtocol) { showToast('Load a protocol first'); return; }
+  const qasm = QASM[currentProtocol.id];
+  if (!qasm) { showToast('No QASM available for this protocol'); return; }
+  navigator.clipboard.writeText(qasm).then(() => {
+    showToast('QASM copied — paste it into the IBM editor');
+    window.open('https://quantum.cloud.ibm.com/composer', '_blank');
+  }).catch(() => {
+    // clipboard blocked — open anyway and let user copy manually
+    window.open('https://quantum.cloud.ibm.com/composer', '_blank');
+    showToast('Open IBM Composer and paste your QASM manually');
+  });
+});
 
 window.addEventListener('load', init);
 window.addEventListener('resize', ()=>{

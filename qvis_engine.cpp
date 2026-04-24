@@ -26,10 +26,11 @@ int main(int argc, char* argv[]) {
     if      (name == "bell")     p = qvis::make_bell_state();
     else if (name == "teleport") p = qvis::make_teleportation();
     else if (name == "grover")   p = qvis::make_grover_2qubit();
+    else if (name == "grover3")  p = qvis::make_grover_3qubit();
     else if (name == "deutsch")  p = qvis::make_deutsch_jozsa();
     else {
         std::cerr << "unknown protocol: " << name
-                  << " (available: bell, teleport, grover, deutsch)\n";
+                  << " (available: bell, teleport, grover, grover3, deutsch)\n";
         return 1;
     }
 

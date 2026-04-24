@@ -286,10 +286,61 @@ def build_deutsch_jozsa():
 #  Protocol registry
 # ──────────────────────────────────────────────────────────────────
 
+def build_grover3():
+    n = 3
+    sv = np.zeros(8, dtype=complex); sv[0] = 1.0
+    steps = []
+
+    steps.append(_step(sv.copy(), n, "INIT", -1, -1,
+        "Three qubits start in |000⟩. Goal: find the marked item |111⟩ in a database of 8. "
+        "Classical worst case: 8 queries. Grover's algorithm needs only 2 — a √8 ≈ 2.8× speedup.",
+        "|ψ⟩ = |000⟩"))
+
+    for q in range(3):
+        sv = _kron_gate(GATE_H, q, n) @ sv
+    steps.append(_step(sv.copy(), n, "H⊗H⊗H", 0, -1,
+        "Hadamard on all 3 qubits: uniform superposition over all 8 states. "
+        "Each has 12.5% probability. The computer considers all 8 entries simultaneously.",
+        "(|000⟩+…+|111⟩)/√8"))
+
+    def diffuse(v):
+        return 2 * np.mean(v) - v
+
+    sv[7] = -sv[7]
+    steps.append(_step(sv.copy(), n, "Oracle", -1, -1,
+        "Oracle marks |111⟩ by flipping its phase. One quantum query on all 8 states at once.",
+        "(|000⟩+…−|111⟩)/√8"))
+
+    sv = diffuse(sv)
+    steps.append(_step(sv.copy(), n, "Diffusion", -1, -1,
+        "Grover diffusion amplifies |111⟩ and suppresses the rest. "
+        "After one cycle, |111⟩ has ~78% probability.",
+        "P(|111⟩) ≈ 78%"))
+
+    sv[7] = -sv[7]
+    steps.append(_step(sv.copy(), n, "Oracle ×2", -1, -1,
+        "Second oracle query: phase-flip |111⟩ again. 2 queries for 8 items vs 8 classically.",
+        "Phase flip ×2"))
+
+    sv = diffuse(sv)
+    steps.append(_step(sv.copy(), n, "Diffusion ×2", -1, -1,
+        "Second diffusion round. |111⟩ now has ~94.5% probability. "
+        "This is the quantum advantage: 2 queries vs 8 classical.",
+        "P(|111⟩) ≈ 94.5% — answer found in 2 queries!"))
+
+    return {
+        "name": "Grover's (3-Qubit)",
+        "description": "Find |111⟩ in an 8-item database using 2 queries instead of 8.",
+        "n_qubits": n,
+        "qubit_labels": ["q0", "q1", "q2"],
+        "steps": [{**s, "index": i, "total": len(steps)} for i, s in enumerate(steps)]
+    }
+
 BUILDERS = {
     "bell":        build_bell_state,
     "teleport":    build_teleportation,
     "grover":      build_grover,
+    "grover3":     build_grover3,
     "deutsch":     build_deutsch_jozsa,
 }
 

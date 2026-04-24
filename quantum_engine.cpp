@@ -406,6 +406,74 @@ Protocol make_deutsch_jozsa() {
 }
 
 // ════════════════════════════════════════════════════════════════
+//  Protocol: Grover's Search (3-qubit, 2 iterations)
+// ════════════════════════════════════════════════════════════════
+Protocol make_grover_3qubit() {
+    Protocol p;
+    p.name        = "Grover's (3-Qubit)";
+    p.description = "Find |111⟩ in an 8-item database using 2 queries instead of 8. "
+                    "Demonstrates Grover's O(√N) advantage at 3 qubits — "
+                    "the kind of circuit where the C++ engine matters.";
+    p.n_qubits    = 3;
+    p.qubit_labels = {"q0", "q1", "q2"};
+
+    Vec sv(8, cx(0,0));
+    sv[0] = 1.0; // |000⟩
+
+    p.steps.push_back(make_step(sv, 3, "INIT", -1, -1,
+        "Three qubits start in |000⟩. Goal: find the marked item |111⟩ in a database of 8. "
+        "Classical worst case: 8 queries. Grover's algorithm needs only 2 — a √8 ≈ 2.8× speedup.",
+        "|ψ⟩ = |000⟩"));
+
+    cx h[4]; Gates::H(h);
+    apply_single(sv, 3, 0, h);
+    apply_single(sv, 3, 1, h);
+    apply_single(sv, 3, 2, h);
+    p.steps.push_back(make_step(sv, 3, "H⊗H⊗H", 0, -1,
+        "Hadamard on all 3 qubits creates a uniform superposition over all 8 states. "
+        "Each of |000⟩ through |111⟩ has exactly 12.5% probability. "
+        "The computer now considers all 8 database entries simultaneously.",
+        "(|000⟩+|001⟩+…+|111⟩)/√8"));
+
+    // Helper: Grover diffusion via inversion about the mean
+    auto diffuse = [&]() {
+        cx mean = 0;
+        for (auto& a : sv) mean += a;
+        mean /= (double)sv.size();
+        for (auto& a : sv) a = 2.0*mean - a;
+    };
+
+    // Iteration 1: oracle (phase-flip |111⟩ = index 7) + diffusion
+    sv[7] = -sv[7];
+    p.steps.push_back(make_step(sv, 3, "Oracle", -1, -1,
+        "The oracle marks |111⟩ by flipping its phase. Probabilities look identical — the change "
+        "is hidden in the sign of the amplitude. This is one quantum query acting on all 8 states at once.",
+        "(|000⟩+…−|111⟩)/√8"));
+
+    diffuse();
+    p.steps.push_back(make_step(sv, 3, "Diffusion", -1, -1,
+        "Grover diffusion (inversion about the mean) amplifies |111⟩ and suppresses the rest. "
+        "After just one oracle+diffusion cycle, |111⟩ has ~78% probability. "
+        "A second iteration will push it past 94%.",
+        "P(|111⟩) ≈ 78% after 1 iteration"));
+
+    // Iteration 2
+    sv[7] = -sv[7];
+    p.steps.push_back(make_step(sv, 3, "Oracle ×2", -1, -1,
+        "Second oracle query: phase-flip |111⟩ again. This is the full quantum budget — "
+        "2 queries for 8 items, vs 8 classically. The phase difference is now even more pronounced.",
+        "Phase flip ×2"));
+
+    diffuse();
+    p.steps.push_back(make_step(sv, 3, "Diffusion ×2", -1, -1,
+        "Second diffusion round. |111⟩ now has ~94.5% probability — one measurement almost "
+        "certainly finds the answer. This is the quantum advantage: 2 queries vs 8 classical.",
+        "P(|111⟩) ≈ 94.5% — answer found in 2 queries!"));
+
+    return p;
+}
+
+// ════════════════════════════════════════════════════════════════
 //  JSON serialization
 // ════════════════════════════════════════════════════════════════
 
