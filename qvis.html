@@ -10,14 +10,14 @@
 <style>
 /* ── Design system ────────────────────────────────────────────── */
 :root {
-  --bg:         #07080d;
-  --bg2:        #0d0f1a;
-  --bg3:        #131627;
-  --border:     rgba(120,130,200,0.15);
-  --border2:    rgba(120,130,200,0.3);
-  --text:       #d8ddf5;
-  --text-dim:   #6b7299;
-  --text-muted: #3a3f5e;
+  --bg:         #0f1117;
+  --bg2:        #161b2a;
+  --bg3:        #1e2440;
+  --border:     rgba(140,155,220,0.22);
+  --border2:    rgba(140,155,220,0.42);
+  --text:       #eaedfa;
+  --text-dim:   #909abf;
+  --text-muted: #586080;
   --accent:     #7c6df8;
   --accent2:    #a78bfa;
   --green:      #34d399;
@@ -130,7 +130,7 @@ header {
 #workspace {
   display: grid;
   grid-template-columns: 1fr 340px;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: 1fr;
   gap: 0;
   height: calc(100vh - 113px);
 }
@@ -313,11 +313,11 @@ svg#circuit-svg {
 /* ── Narrative panel ──────────────────────────────────────────── */
 #narrative-panel {
   border-bottom: 1px solid var(--border);
-  padding: 24px;
+  padding: 12px 24px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .gate-label {
@@ -517,6 +517,88 @@ svg#circuit-svg {
   line-height: 1.45;
 }
 
+/* ── Section labels ──────────────────────────────────────────── */
+.panel-section-label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.7;
+  padding: 10px 24px 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+/* ── Right column ─────────────────────────────────────────────── */
+#right-col {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+}
+
+/* ── Step context bar ─────────────────────────────────────────── */
+#step-context-bar {
+  padding: 6px 24px;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+/* ── Qiskit panel ─────────────────────────────────────────────── */
+#qiskit-panel {
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#qiskit-panel .panel-section-label {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding: 12px 16px;
+}
+#qiskit-panel .panel-section-label:hover { opacity: 1; color: var(--accent2); }
+#qiskit-body {
+  padding: 0 16px 16px;
+}
+.qiskit-pre {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--green);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  line-height: 1.7;
+  color: var(--text-dim);
+  white-space: pre;
+  overflow-x: auto;
+  margin: 0;
+}
+/* basic syntax tinting via spans injected by JS */
+.qs-kw  { color: #c792ea; }
+.qs-fn  { color: #82aaff; }
+.qs-str { color: #c3e88d; }
+.qs-cm  { color: var(--text-muted); font-style: italic; }
+.qs-num { color: #f78c6c; }
+
+/* ── Zoo header label ─────────────────────────────────────────── */
+.zoo-header-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  flex-shrink: 0;
+  align-self: center;
+  white-space: nowrap;
+  padding: 0 4px;
+  border-right: 1px solid var(--border);
+  margin-right: 4px;
+}
+
 /* ── Transitions ─────────────────────────────────────────────── */
 .fade-in {
   animation: fadeIn 0.3s ease forwards;
@@ -554,43 +636,68 @@ svg#circuit-svg {
       </div>
       <div class="speedup-badge" id="speedup-badge" style="display:none"></div>
     </div>
+    <div class="panel-section-label" style="padding:6px 24px 0;">Circuit Diagram</div>
     <div id="circuit-viewport">
       <svg id="circuit-svg" height="160"></svg>
+    </div>
+    <div id="step-context-bar">
+      <span id="step-context-text" style="font-family:var(--mono);font-size:0.68rem;color:var(--text-dim);">Use the buttons below or arrow keys to step through the circuit</span>
     </div>
     <div id="step-controls">
       <button class="ctrl-btn" id="btn-reset" title="Reset to beginning">⟪ Reset</button>
       <button class="ctrl-btn" id="btn-prev" title="Previous step">← Prev</button>
-      <button class="ctrl-btn primary" id="btn-next" title="Next step">Next →</button>
+      <button class="ctrl-btn primary" id="btn-next" title="Next step (→ or Space)">Next →</button>
       <div class="step-dots" id="step-dots"></div>
-      <div class="step-counter"><em id="step-num">—</em> / <em id="step-total">—</em></div>
+      <div class="step-counter">Step <em id="step-num">—</em> of <em id="step-total">—</em></div>
       <button class="ctrl-btn" id="ibm-btn" title="Copy QASM and open IBM Quantum Composer">Run on IBM ↗</button>
     </div>
   </div>
 
-  <!-- Right top: narrative -->
-  <div id="narrative-panel">
-    <div class="gate-label" id="gate-label">Awaiting protocol</div>
-    <div class="narrative-text" id="narrative-text">
-      Select a protocol from the top bar to begin. Each step shows exactly what one gate does to the quantum state, with live probability updates.
+  <!-- Right column -->
+  <div id="right-col">
+    <!-- Gate analysis -->
+    <div id="narrative-panel">
+      <div class="panel-section-label">Gate Analysis</div>
+      <div class="gate-label" id="gate-label">Awaiting protocol</div>
+      <div class="narrative-text" id="narrative-text">
+        Select a protocol from the top bar to begin. Each step shows exactly what one gate does to the quantum state, with live probability updates.
+      </div>
+      <div class="math-hint" id="math-hint" style="display:none"></div>
+      <div class="entropy-row" id="entropy-row" style="display:none">
+        <div class="entropy-label">Entanglement</div>
+        <div class="entropy-bar-bg"><div class="entropy-bar-fill" id="entropy-fill" style="width:0%"></div></div>
+        <div class="entropy-val" id="entropy-val">0.00</div>
+      </div>
     </div>
-    <div class="math-hint" id="math-hint" style="display:none"></div>
-    <div class="entropy-row" id="entropy-row" style="display:none">
-      <div class="entropy-label">Entanglement</div>
-      <div class="entropy-bar-bg"><div class="entropy-bar-fill" id="entropy-fill" style="width:0%"></div></div>
-      <div class="entropy-val" id="entropy-val">0.00</div>
-    </div>
-  </div>
 
-  <!-- Right bottom: probability chart -->
-  <div id="prob-panel">
-    <div class="panel-label">Measurement Probabilities</div>
-    <svg id="prob-svg"></svg>
+    <!-- Probability chart -->
+    <div id="prob-panel">
+      <div class="panel-label">Measurement Probabilities</div>
+      <svg id="prob-svg"></svg>
+    </div>
+
+    <!-- Qiskit code -->
+    <div id="qiskit-panel">
+      <div class="panel-section-label" id="qiskit-toggle" style="cursor:pointer;user-select:none;">
+        Qiskit Code <span id="qiskit-arrow" style="float:right;opacity:0.6;">▼</span>
+      </div>
+      <div id="qiskit-body" style="display:none">
+        <div class="panel-label" style="margin-bottom:8px">Simulate this protocol locally with Python</div>
+        <div style="position:relative">
+          <pre id="qiskit-code" class="qiskit-pre">Select a protocol above to see its Qiskit code.</pre>
+          <button id="qiskit-copy" class="zoom-btn" style="position:absolute;top:8px;right:8px;">Copy</button>
+        </div>
+        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:8px;font-family:var(--mono);">
+          Install: <span style="color:var(--green)">pip install qiskit qiskit-aer</span>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- Bottom: Algorithm Zoo strip -->
 <div id="zoo-panel">
-  <div style="font-family:var(--mono);font-size:0.6rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.12em;writing-mode:vertical-rl;transform:rotate(180deg);flex-shrink:0;align-self:center">Algorithm Zoo</div>
+  <div class="zoo-header-label">Learn More — Quantum Algorithm Zoo</div>
 </div>
 
 </div><!-- #app -->
@@ -1007,14 +1114,14 @@ function buildLocal(pid) {
 
 // ── Algorithm Zoo data ────────────────────────────────────────────
 const ZOO_ENTRIES = [
-  {name:"Shor's Factoring",speedup:"Superpolynomial",desc:"Factor N-bit integers. Breaks RSA. Needs ~2000 logical qubits for 2048-bit RSA.",link:"https://quantumalgorithmzoo.org/#shor"},
-  {name:"Grover's Search",speedup:"Polynomial (quadratic)",desc:"O(√N) vs O(N). Used in this visualizer. Basis of quantum collision finding.",link:"https://quantumalgorithmzoo.org/#grover"},
-  {name:"Deutsch-Jozsa",speedup:"Exponential (oracular)",desc:"O(1) vs O(N/2). Shown in this visualizer. First proven quantum speedup (1992).",link:"https://quantumalgorithmzoo.org/#deutsch"},
-  {name:"HHL Linear Systems",speedup:"Exponential (sparse)",desc:"Solve Ax=b in O(log N). Exponential speedup over classical Gaussian elimination.",link:"https://quantumalgorithmzoo.org/#hhl"},
-  {name:"Quantum Simulation",speedup:"Superpolynomial",desc:"Simulate quantum systems. Feynman's original motivation for quantum computers.",link:"https://quantumalgorithmzoo.org/#simulation"},
-  {name:"QAOA",speedup:"Superpolynomial",desc:"Quantum Approximate Optimization. Combinatorial optimization via variational circuits.",link:"https://quantumalgorithmzoo.org/#qaoa"},
-  {name:"QFT / Phase Est.",speedup:"Superpolynomial",desc:"Quantum Fourier Transform. Core subroutine of Shor's algorithm and many others.",link:"https://quantumalgorithmzoo.org/#qft"},
-  {name:"Bernstein-Vazirani",speedup:"Polynomial",desc:"Find hidden string in 1 query vs N. Related to Grover; uses Hadamard interference.",link:"https://quantumalgorithmzoo.org/#bv"},
+  {name:"Shor's Factoring",speedup:"Superpolynomial",desc:"Factor N-bit integers. Breaks RSA. Needs ~2000 logical qubits for 2048-bit RSA.",link:"https://arxiv.org/abs/quant-ph/9508027",paper:"Shor, 1994"},
+  {name:"Grover's Search",speedup:"Polynomial (quadratic)",desc:"O(√N) vs O(N). Used in this visualizer. Basis of quantum collision finding.",link:"https://arxiv.org/abs/quant-ph/9605043",paper:"Grover, 1996"},
+  {name:"Deutsch-Jozsa",speedup:"Exponential (oracular)",desc:"O(1) vs O(N/2). Shown in this visualizer. First proven quantum speedup (1992).",link:"https://arxiv.org/abs/quant-ph/9706064",paper:"Deutsch & Jozsa, 1992"},
+  {name:"HHL Linear Systems",speedup:"Exponential (sparse)",desc:"Solve Ax=b in O(log N). Exponential speedup over classical Gaussian elimination.",link:"https://arxiv.org/abs/0811.3171",paper:"Harrow, Hassidim & Lloyd, 2008"},
+  {name:"Quantum Simulation",speedup:"Superpolynomial",desc:"Simulate quantum systems. Feynman's original motivation for quantum computers.",link:"https://arxiv.org/abs/quant-ph/9603026",paper:"Lloyd, 1996"},
+  {name:"QAOA",speedup:"Superpolynomial",desc:"Quantum Approximate Optimization. Combinatorial optimization via variational circuits.",link:"https://arxiv.org/abs/1411.4028",paper:"Farhi, Goldstone & Gutmann, 2014"},
+  {name:"QFT / Phase Est.",speedup:"Superpolynomial",desc:"Quantum Fourier Transform. Core subroutine of Shor's algorithm and many others.",link:"https://arxiv.org/abs/quant-ph/9508027",paper:"Shor, 1994"},
+  {name:"Bernstein-Vazirani",speedup:"Polynomial",desc:"Find hidden string in 1 query vs N. Related to Grover; uses Hadamard interference.",link:"https://arxiv.org/abs/quant-ph/9206005",paper:"Bernstein & Vazirani, 1993"},
 ];
 
 // ── State ────────────────────────────────────────────────────────
@@ -1306,6 +1413,14 @@ function gotoStep(idx) {
   document.getElementById('step-num').textContent = idx+1;
   document.getElementById('btn-prev').disabled = (idx===0);
   document.getElementById('btn-next').disabled = (idx===currentProtocol.steps.length-1);
+
+  // Step context label
+  const s = currentProtocol.steps[idx];
+  const isLast = idx === currentProtocol.steps.length - 1;
+  const ctxLabel = s.gate === 'INIT'
+    ? `Step 1 — Initial State: all qubits start in |0⟩`
+    : `Step ${idx+1} — Applying gate: ${s.gate}${isLast ? ' (final step)' : ''}`;
+  document.getElementById('step-context-text').textContent = ctxLabel;
 }
 
 async function loadProtocol(pid) {
@@ -1343,6 +1458,8 @@ async function loadProtocol(pid) {
   });
 
   document.getElementById('step-total').textContent = proto.steps.length;
+
+  updateQiskit(proto.id);
 
   // Init chart
   initProbChart(proto.n_qubits);
@@ -1388,6 +1505,22 @@ async function init() {
   document.getElementById('zoom-out').onclick = ()=>{ if(zoomIdx>0){zoomIdx--;applyZoom();} };
   applyZoom();
 
+  // Qiskit panel toggle
+  document.getElementById('qiskit-toggle').onclick = () => {
+    const body = document.getElementById('qiskit-body');
+    const arrow = document.getElementById('qiskit-arrow');
+    const open = body.style.display === 'none';
+    body.style.display = open ? 'block' : 'none';
+    arrow.textContent = open ? '▲' : '▼';
+  };
+
+  // Qiskit copy button
+  document.getElementById('qiskit-copy').onclick = () => {
+    if (!currentProtocol) return;
+    const code = QISKIT[currentProtocol.id] || '';
+    navigator.clipboard.writeText(code).then(()=>showToast('Qiskit code copied!')).catch(()=>showToast('Copy failed — select the code manually'));
+  };
+
   // Keyboard navigation
   document.addEventListener('keydown', e=>{
     if (!currentProtocol) return;
@@ -1407,12 +1540,130 @@ async function init() {
     card.rel = 'noopener noreferrer';
     card.innerHTML = `<div class="zoo-name">${e.name} <span style="color:var(--text-muted);font-size:0.55rem">↗</span></div>
       <div class="zoo-speedup">↑ ${e.speedup}</div>
-      <div class="zoo-desc">${e.desc}</div>`;
+      <div class="zoo-desc">${e.desc}</div>
+      <div style="font-family:var(--mono);font-size:0.57rem;color:var(--text-muted);margin-top:6px;border-top:1px solid var(--border);padding-top:5px;">${e.paper}</div>`;
     zoo.appendChild(card);
   });
 
   // load the bell state protocol on startup (no await — let it render in background)
   loadProtocol('bell');
+}
+
+// ── Qiskit code ───────────────────────────────────────────────────
+const QISKIT = {
+  bell:
+`from qiskit import QuantumCircuit
+from qiskit_aer import AerSimulator
+
+qc = QuantumCircuit(2, 2)
+qc.h(0)        # Hadamard: put qubit 0 in superposition
+qc.cx(0, 1)    # CNOT: entangle qubit 1 with qubit 0
+qc.measure([0, 1], [0, 1])
+
+sim = AerSimulator()
+result = sim.run(qc, shots=1000).result()
+print(result.get_counts())
+# Expect: {'00': ~500, '11': ~500}`,
+
+  teleport:
+`from qiskit import QuantumCircuit
+from qiskit_aer import AerSimulator
+
+qc = QuantumCircuit(3, 3)
+# Create Bell pair between Alice (q1) and Bob (q2)
+qc.h(1)
+qc.cx(1, 2)
+# Alice's Bell measurement on message (q0) + her qubit (q1)
+qc.cx(0, 1)
+qc.h(0)
+qc.measure([0, 1], [0, 1])
+# Bob applies corrections based on Alice's 2 classical bits
+qc.cx(1, 2)
+qc.cz(0, 2)
+qc.measure(2, 2)
+
+sim = AerSimulator()
+result = sim.run(qc, shots=1000).result()
+print(result.get_counts())`,
+
+  grover:
+`from qiskit import QuantumCircuit
+from qiskit_aer import AerSimulator
+
+qc = QuantumCircuit(2, 2)
+# Uniform superposition
+qc.h([0, 1])
+# Oracle: phase-flip the target |11⟩
+qc.cz(0, 1)
+# Grover diffusion (inversion about the mean)
+qc.h([0, 1])
+qc.x([0, 1])
+qc.h(1); qc.cx(0, 1); qc.h(1)
+qc.x([0, 1])
+qc.h([0, 1])
+
+qc.measure([0, 1], [0, 1])
+
+sim = AerSimulator()
+result = sim.run(qc, shots=1000).result()
+print(result.get_counts())
+# Expect: {'11': ~1000}  (near-certain in 1 query)`,
+
+  deutsch:
+`from qiskit import QuantumCircuit
+from qiskit_aer import AerSimulator
+
+qc = QuantumCircuit(2, 1)
+qc.x(1)           # Ancilla starts in |1⟩
+qc.h([0, 1])      # Hadamard on both: enables phase kickback
+qc.cx(0, 1)       # Oracle for balanced f(x) = x
+qc.h(0)           # Interfere: |0⟩=constant, |1⟩=balanced
+qc.measure(0, 0)
+
+sim = AerSimulator()
+result = sim.run(qc, shots=1000).result()
+print(result.get_counts())
+# '1' → balanced function  |  '0' → constant function`,
+
+  grover3:
+`from qiskit import QuantumCircuit
+from qiskit_aer import AerSimulator
+
+qc = QuantumCircuit(3, 3)
+qc.h([0, 1, 2])   # Uniform superposition over 8 states
+
+for _ in range(2):  # 2 iterations for N=8
+    # Oracle: phase-flip |111⟩ using Toffoli
+    qc.h(2); qc.ccx(0, 1, 2); qc.h(2)
+    # Grover diffusion
+    qc.h([0, 1, 2])
+    qc.x([0, 1, 2])
+    qc.h(2); qc.ccx(0, 1, 2); qc.h(2)
+    qc.x([0, 1, 2])
+    qc.h([0, 1, 2])
+
+qc.measure([0, 1, 2], [0, 1, 2])
+
+sim = AerSimulator()
+result = sim.run(qc, shots=1000).result()
+print(result.get_counts())
+# Expect: {'111': ~945}  — found in 2 queries vs 8 classical`,
+};
+
+function highlightQiskit(code) {
+  const esc = code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return esc
+    .replace(/(#[^\n]*)/g, '<span class="qs-cm">$1</span>')
+    .replace(/\b(from|import|for|in|if|def|return|print)\b/g, '<span class="qs-kw">$1</span>')
+    .replace(/\b(\d+)\b/g, '<span class="qs-num">$1</span>')
+    .replace(/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")/g, '<span class="qs-str">$1</span>');
+}
+
+function updateQiskit(pid) {
+  const code = QISKIT[pid];
+  const pre = document.getElementById('qiskit-code');
+  if (!code) { pre.innerHTML = 'No Qiskit code available for this protocol.'; return; }
+  pre.innerHTML = highlightQiskit(code);
 }
 
 // ── Zoom control ─────────────────────────────────────────────────
