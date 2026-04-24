@@ -235,31 +235,6 @@ svg#circuit-svg {
 }
 #ibm-btn:hover { background: rgba(0,122,255,0.22); border-color: #60a5fa; color: #93c5fd; }
 
-/* Zoom controls */
-.zoom-control {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-}
-.zoom-btn {
-  font-family: var(--mono);
-  font-size: 0.65rem;
-  padding: 3px 8px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: var(--bg2);
-  color: var(--text-dim);
-  cursor: pointer;
-  transition: all 0.15s;
-  letter-spacing: 0.06em;
-}
-.zoom-btn:hover { border-color: var(--accent); color: var(--text); }
-#zoom-label {
-  min-width: 38px;
-  text-align: center;
-  margin: 0 2px;
-}
 
 /* Toast notification */
 #qasm-toast {
@@ -599,6 +574,88 @@ svg#circuit-svg {
   margin-right: 4px;
 }
 
+/* ── Statevector panel ────────────────────────────────────────── */
+#sv-panel {
+  border-top: 1px solid var(--border);
+  padding: 12px 16px 16px;
+  flex-shrink: 0;
+}
+.sv-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.sv-panel-title {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.7;
+}
+.sv-help-btn {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+.sv-help-btn:hover { border-color: var(--accent); color: var(--accent2); }
+
+/* Tooltip popup */
+.sv-tooltip {
+  display: none;
+  position: absolute;
+  right: 16px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-left: 2px solid var(--cyan);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--text);
+  max-width: 280px;
+  z-index: 50;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.sv-tooltip.visible { display: block; }
+.sv-tooltip strong { color: var(--cyan); font-weight: 600; }
+
+#sv-svg { width: 100%; display: block; }
+
+.sv-legend {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
+}
+.sv-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--text-muted);
+}
+.sv-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
 /* ── Transitions ─────────────────────────────────────────────── */
 .fade-in {
   animation: fadeIn 0.3s ease forwards;
@@ -617,11 +674,6 @@ svg#circuit-svg {
   <div class="header-tag">EC327 · Spring 2026</div>
   <div class="header-tag" style="color: var(--accent); border-color: var(--accent);">Quantum Protocol Explorer</div>
   <div class="header-tag" id="engine-badge" style="color:var(--text-muted)">Engine: JS</div>
-  <div class="zoom-control">
-    <button class="zoom-btn" id="zoom-out" title="Zoom out">A−</button>
-    <span class="header-tag" id="zoom-label">100%</span>
-    <button class="zoom-btn" id="zoom-in" title="Zoom in">A+</button>
-  </div>
 </header>
 
 <div id="protocol-bar"></div>
@@ -676,6 +728,25 @@ svg#circuit-svg {
       <svg id="prob-svg"></svg>
     </div>
 
+    <!-- Statevector visualization -->
+    <div id="sv-panel" style="position:relative">
+      <div class="sv-panel-header">
+        <span class="sv-panel-title">Statevector</span>
+        <button class="sv-help-btn" id="sv-help-btn" title="What is a statevector?">?</button>
+      </div>
+      <div class="sv-tooltip" id="sv-tooltip">
+        <strong>What is a statevector?</strong><br>
+        A qubit isn't just 0 or 1 — it holds a <strong>complex number</strong> for every possible outcome. These are called <strong>amplitudes</strong>.<br><br>
+        Squaring an amplitude gives the <strong>probability</strong> of measuring that outcome.<br><br>
+        The <strong>phase</strong> (angle in the complex plane) is what makes quantum interference possible — it's invisible to measurement but drives the whole algorithm.
+      </div>
+      <svg id="sv-svg" height="110"></svg>
+      <div class="sv-legend">
+        <div class="sv-legend-item"><div class="sv-legend-dot" style="background:#7c6df8"></div>Real</div>
+        <div class="sv-legend-item"><div class="sv-legend-dot" style="background:#fb923c"></div>Imaginary</div>
+      </div>
+    </div>
+
     <!-- Qiskit code -->
     <div id="qiskit-panel">
       <div class="panel-section-label" id="qiskit-toggle" style="cursor:pointer;user-select:none;">
@@ -685,7 +756,7 @@ svg#circuit-svg {
         <div class="panel-label" style="margin-bottom:8px">Simulate this protocol locally with Python</div>
         <div style="position:relative">
           <pre id="qiskit-code" class="qiskit-pre">Select a protocol above to see its Qiskit code.</pre>
-          <button id="qiskit-copy" class="zoom-btn" style="position:absolute;top:8px;right:8px;">Copy</button>
+          <button id="qiskit-copy" class="ctrl-btn" style="position:absolute;top:8px;right:8px;padding:3px 10px;font-size:0.62rem;">Copy</button>
         </div>
         <div style="font-size:0.68rem;color:var(--text-muted);margin-top:8px;font-family:var(--mono);">
           Install: <span style="color:var(--green)">pip install qiskit qiskit-aer</span>
@@ -1405,6 +1476,7 @@ function gotoStep(idx) {
   const step = currentProtocol.steps[idx];
   updateNarrative(step);
   updateProbChart(step.probs);
+  updateSVChart(step.statevector);
   drawCircuit(currentProtocol, idx);
   // dots
   document.querySelectorAll('.step-dot').forEach((d,i)=>{
@@ -1461,8 +1533,9 @@ async function loadProtocol(pid) {
 
   updateQiskit(proto.id);
 
-  // Init chart
+  // Init charts
   initProbChart(proto.n_qubits);
+  initSVChart(proto.n_qubits);
   gotoStep(0);
 
   // Highlight relevant zoo cards
@@ -1500,10 +1573,14 @@ async function init() {
   document.getElementById('btn-next').onclick = ()=>gotoStep(currentStep+1);
   document.getElementById('btn-reset').onclick = ()=>gotoStep(0);
 
-  // Zoom controls
-  document.getElementById('zoom-in').onclick  = ()=>{ if(zoomIdx<ZOOM_LEVELS.length-1){zoomIdx++;applyZoom();} };
-  document.getElementById('zoom-out').onclick = ()=>{ if(zoomIdx>0){zoomIdx--;applyZoom();} };
-  applyZoom();
+  // Statevector tooltip
+  document.getElementById('sv-help-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('sv-tooltip').classList.toggle('visible');
+  });
+  document.addEventListener('click', () => {
+    document.getElementById('sv-tooltip').classList.remove('visible');
+  });
 
   // Qiskit panel toggle
   document.getElementById('qiskit-toggle').onclick = () => {
@@ -1666,21 +1743,94 @@ function updateQiskit(pid) {
   pre.innerHTML = highlightQiskit(code);
 }
 
-// ── Zoom control ─────────────────────────────────────────────────
-const ZOOM_LEVELS = [0.75, 1.0, 1.25, 1.5, 2.0];
-let zoomIdx = 1;
+// ── Statevector visualization ─────────────────────────────────────
+let svChart = null;
 
-function applyZoom() {
-  const z = ZOOM_LEVELS[zoomIdx];
-  document.getElementById('workspace').style.zoom = z;
-  document.getElementById('zoom-label').textContent = Math.round(z * 100) + '%';
-  document.getElementById('zoom-out').disabled = (zoomIdx === 0);
-  document.getElementById('zoom-in').disabled  = (zoomIdx === ZOOM_LEVELS.length - 1);
-  if (currentProtocol) {
-    initProbChart(currentProtocol.n_qubits);
-    updateProbChart(currentProtocol.steps[currentStep].probs);
+function initSVChart(nQubits) {
+  const svg = d3.select('#sv-svg');
+  svg.selectAll('*').remove();
+
+  const container = document.getElementById('sv-panel');
+  const W = container.clientWidth - 32;
+  const H = 110;
+  const nStates = 1 << nQubits;
+  const PAD = { l: 28, r: 8, t: 10, b: 22 };
+  const innerW = W - PAD.l - PAD.r;
+  const innerH = H - PAD.t - PAD.b;
+  const barW = Math.max(2, (innerW / nStates) * 0.35);
+  const gap  = innerW / nStates;
+
+  svg.attr('width', W).attr('height', H);
+  const g = svg.append('g').attr('transform', `translate(${PAD.l},${PAD.t})`);
+
+  // zero line
+  const midY = innerH / 2;
+  g.append('line')
+    .attr('x1', 0).attr('y1', midY).attr('x2', innerW).attr('y2', midY)
+    .attr('stroke', 'rgba(140,155,220,0.25)').attr('stroke-width', 1);
+
+  // y axis labels
+  g.append('text').attr('x', -4).attr('y', 4)
+    .attr('text-anchor','end').attr('font-family','Space Mono, monospace')
+    .attr('font-size', 8).attr('fill', '#586080').text('+1');
+  g.append('text').attr('x', -4).attr('y', innerH)
+    .attr('text-anchor','end').attr('font-family','Space Mono, monospace')
+    .attr('font-size', 8).attr('fill', '#586080').text('−1');
+
+  const labels = [];
+  const reBars = [], imBars = [];
+
+  for (let i = 0; i < nStates; i++) {
+    const cx_ = gap * i + gap / 2;
+
+    // real bar
+    const rb = g.append('rect')
+      .attr('x', cx_ - barW - 1).attr('y', midY)
+      .attr('width', barW).attr('height', 0)
+      .attr('fill', '#7c6df8').attr('rx', 2).attr('opacity', 0.85);
+    reBars.push(rb);
+
+    // imag bar
+    const ib = g.append('rect')
+      .attr('x', cx_ + 1).attr('y', midY)
+      .attr('width', barW).attr('height', 0)
+      .attr('fill', '#fb923c').attr('rx', 2).attr('opacity', 0.85);
+    imBars.push(ib);
+
+    // state label
+    const lbl = g.append('text')
+      .attr('x', cx_).attr('y', innerH + 14)
+      .attr('text-anchor', 'middle')
+      .attr('font-family', 'Space Mono, monospace')
+      .attr('font-size', nStates <= 4 ? 9 : 7)
+      .attr('fill', '#586080')
+      .text('|' + i.toString(2).padStart(nQubits, '0') + '⟩');
+    labels.push(lbl);
+  }
+
+  svChart = { reBars, imBars, midY, innerH, nStates };
+}
+
+function updateSVChart(statevector) {
+  if (!svChart) return;
+  const { reBars, imBars, midY, innerH, nStates } = svChart;
+  const scale = innerH / 2;
+
+  for (let i = 0; i < nStates; i++) {
+    const amp = statevector[i] || { re: 0, im: 0 };
+
+    const reH = Math.abs(amp.re) * scale;
+    const reY = amp.re >= 0 ? midY - reH : midY;
+    reBars[i].transition().duration(350).ease(d3.easeCubicOut)
+      .attr('y', reY).attr('height', reH);
+
+    const imH = Math.abs(amp.im) * scale;
+    const imY = amp.im >= 0 ? midY - imH : midY;
+    imBars[i].transition().duration(350).ease(d3.easeCubicOut)
+      .attr('y', imY).attr('height', imH);
   }
 }
+
 
 // ── IBM Quantum integration ───────────────────────────────────────
 const QASM = {
@@ -1785,7 +1935,10 @@ document.getElementById('ibm-btn').addEventListener('click', () => {
 
 window.addEventListener('load', init);
 window.addEventListener('resize', ()=>{
-  if (currentProtocol) { initProbChart(currentProtocol.n_qubits); updateProbChart(currentProtocol.steps[currentStep].probs); }
+  if (!currentProtocol) return;
+  const s = currentProtocol.steps[currentStep];
+  initProbChart(currentProtocol.n_qubits); updateProbChart(s.probs);
+  initSVChart(currentProtocol.n_qubits);   updateSVChart(s.statevector);
 });
 </script>
 </body>
