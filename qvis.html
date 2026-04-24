@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QVis — Quantum Protocol Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+/* ── Design system ────────────────────────────────────────────── */
+:root {
+  --bg:         #07080d;
+  --bg2:        #0d0f1a;
+  --bg3:        #131627;
+  --border:     rgba(120,130,200,0.15);
+  --border2:    rgba(120,130,200,0.3);
+  --text:       #d8ddf5;
+  --text-dim:   #6b7299;
+  --text-muted: #3a3f5e;
+  --accent:     #7c6df8;
+  --accent2:    #a78bfa;
+  --green:      #34d399;
+  --orange:     #fb923c;
+  --pink:       #f472b6;
+  --cyan:       #22d3ee;
+  --yellow:     #fbbf24;
+  --mono:       'Space Mono', monospace;
+  --sans:       'DM Sans', sans-serif;
+  --r:          6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Grid noise texture */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(124,109,248,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124,109,248,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Layout ───────────────────────────────────────────────────── */
+#app { position: relative; z-index: 1; }
+
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: rgba(7,8,13,0.8);
+  backdrop-filter: blur(12px);
+  position: sticky; top: 0; z-index: 100;
+}
+
+.logo {
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent2);
+}
+.logo span { color: var(--text-dim); font-weight: 400; }
+
+.header-tag {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+/* ── Protocol selector ────────────────────────────────────────── */
+#protocol-bar {
+  padding: 20px 32px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.proto-btn {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  background: var(--bg2);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.18s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.proto-btn:hover { border-color: var(--accent); color: var(--text); background: var(--bg3); }
+.proto-btn.active {
+  border-color: var(--accent);
+  background: rgba(124,109,248,0.12);
+  color: var(--accent2);
+}
+.proto-btn .qubit-badge {
+  font-size: 0.6rem;
+  padding: 2px 5px;
+  background: var(--bg3);
+  border-radius: 3px;
+  color: var(--text-muted);
+}
+.proto-btn.active .qubit-badge { background: rgba(124,109,248,0.2); color: var(--accent); }
+
+/* ── Main workspace ───────────────────────────────────────────── */
+#workspace {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  grid-template-rows: auto 1fr;
+  gap: 0;
+  height: calc(100vh - 113px);
+}
+
+/* ── Circuit panel ────────────────────────────────────────────── */
+#circuit-panel {
+  grid-row: 1 / 3;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#circuit-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.protocol-title {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent2);
+  letter-spacing: 0.06em;
+}
+
+.protocol-desc {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+  max-width: 560px;
+  margin-top: 4px;
+}
+
+.speedup-badge {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  padding: 6px 10px;
+  background: rgba(52,211,153,0.08);
+  border: 1px solid rgba(52,211,153,0.25);
+  border-radius: var(--r);
+  color: var(--green);
+  text-align: right;
+  line-height: 1.6;
+}
+
+/* Circuit SVG viewport */
+#circuit-viewport {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+  position: relative;
+}
+
+svg#circuit-svg {
+  min-width: 100%;
+  display: block;
+}
+
+/* Step controls */
+#step-controls {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--bg2);
+}
+
+.ctrl-btn {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  padding: 8px 16px;
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  background: var(--bg3);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ctrl-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+.ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.ctrl-btn.primary {
+  background: rgba(124,109,248,0.15);
+  border-color: var(--accent);
+  color: var(--accent2);
+}
+
+.step-counter {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+.step-counter em { color: var(--text); font-style: normal; }
+
+/* Step dots */
+.step-dots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.step-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+.step-dot.active { background: var(--accent); transform: scale(1.3); }
+.step-dot.visited { background: var(--accent2); opacity: 0.5; }
+
+/* ── Narrative panel ──────────────────────────────────────────── */
+#narrative-panel {
+  border-bottom: 1px solid var(--border);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.gate-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gate-label::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.narrative-text {
+  font-size: 0.84rem;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.math-hint {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  padding: 8px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 var(--r) var(--r) 0;
+  color: var(--accent2);
+  letter-spacing: 0.04em;
+}
+
+/* Entropy meter */
+.entropy-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.entropy-label {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+  width: 80px;
+}
+.entropy-bar-bg {
+  flex: 1;
+  height: 5px;
+  background: var(--bg3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.entropy-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--cyan), var(--accent));
+  transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+.entropy-val {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--cyan);
+  width: 36px;
+  text-align: right;
+}
+
+/* ── Probability chart panel ──────────────────────────────────── */
+#prob-panel {
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.panel-label {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+/* D3 chart styles (applied via JS) */
+.prob-bar { transition: height 0.45s cubic-bezier(0.4,0,0.2,1); }
+.prob-label { font-family: var(--mono); fill: var(--text-dim); }
+.prob-val { font-family: var(--mono); fill: var(--text); }
+.axis line, .axis path { stroke: var(--border); }
+.axis text { font-family: var(--mono); fill: var(--text-muted); font-size: 10px; }
+
+/* ── Circuit SVG drawing styles ───────────────────────────────── */
+.wire { stroke: var(--border2); stroke-width: 1.5; fill: none; }
+.wire-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  fill: var(--text-dim);
+}
+.qubit-init {
+  font-family: var(--mono);
+  font-size: 11px;
+  fill: var(--text-muted);
+}
+
+.gate-box {
+  rx: 4px; ry: 4px;
+  stroke-width: 1.5;
+  transition: all 0.2s;
+}
+.gate-box.active { filter: drop-shadow(0 0 8px var(--accent)); }
+
+.gate-text {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.ctrl-dot { transition: all 0.2s; }
+.ctrl-line { stroke: var(--border2); stroke-width: 1.5; }
+.ctrl-line.active { stroke: var(--accent); }
+
+.measure-box { stroke: var(--orange); fill: rgba(251,146,60,0.12); }
+.active-cursor {
+  stroke: var(--accent2);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  fill: rgba(124,109,248,0.05);
+  pointer-events: none;
+  animation: cursor-fade 1.5s ease-in-out infinite;
+}
+@keyframes cursor-fade {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.2; }
+}
+
+/* ── Bloch sphere placeholder ─────────────────────────────────── */
+#bloch-sphere {
+  width: 100%;
+  aspect-ratio: 1;
+  position: relative;
+}
+#bloch-sphere svg { width: 100%; height: 100%; }
+
+/* ── Algorithm Zoo sidebar ────────────────────────────────────── */
+#zoo-panel {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  background: var(--bg2);
+}
+.zoo-card {
+  flex-shrink: 0;
+  width: 200px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--bg3);
+  cursor: default;
+  transition: border-color 0.2s;
+}
+.zoo-card:hover { border-color: var(--border2); }
+.zoo-card.highlighted { border-color: var(--accent); }
+.zoo-name {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.zoo-speedup {
+  font-size: 0.65rem;
+  color: var(--green);
+  margin-bottom: 6px;
+}
+.zoo-desc {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+/* ── Transitions ─────────────────────────────────────────────── */
+.fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<header>
+  <div class="logo">QV<span>is</span></div>
+  <div class="header-tag">EC327 · Spring 2026</div>
+  <div class="header-tag" style="margin-left:auto; color: var(--accent); border-color: var(--accent);">Quantum Protocol Explorer</div>
+  <div class="header-tag" id="engine-badge" style="color:var(--text-muted)">Engine: JS</div>
+</header>
+
+<div id="protocol-bar"></div>
+
+<div id="workspace">
+  <!-- Left: circuit + controls -->
+  <div id="circuit-panel">
+    <div id="circuit-header">
+      <div>
+        <div class="protocol-title" id="proto-title">Select a protocol above</div>
+        <div class="protocol-desc" id="proto-desc">Choose a quantum protocol to begin the step-through visualization.</div>
+      </div>
+      <div class="speedup-badge" id="speedup-badge" style="display:none"></div>
+    </div>
+    <div id="circuit-viewport">
+      <svg id="circuit-svg" height="160"></svg>
+    </div>
+    <div id="step-controls">
+      <button class="ctrl-btn" id="btn-reset" title="Reset to beginning">⟪ Reset</button>
+      <button class="ctrl-btn" id="btn-prev" title="Previous step">← Prev</button>
+      <button class="ctrl-btn primary" id="btn-next" title="Next step">Next →</button>
+      <div class="step-dots" id="step-dots"></div>
+      <div class="step-counter"><em id="step-num">—</em> / <em id="step-total">—</em></div>
+    </div>
+  </div>
+
+  <!-- Right top: narrative -->
+  <div id="narrative-panel">
+    <div class="gate-label" id="gate-label">Awaiting protocol</div>
+    <div class="narrative-text" id="narrative-text">
+      Select a protocol from the top bar to begin. Each step shows exactly what one gate does to the quantum state, with live probability updates.
+    </div>
+    <div class="math-hint" id="math-hint" style="display:none"></div>
+    <div class="entropy-row" id="entropy-row" style="display:none">
+      <div class="entropy-label">Entanglement</div>
+      <div class="entropy-bar-bg"><div class="entropy-bar-fill" id="entropy-fill" style="width:0%"></div></div>
+      <div class="entropy-val" id="entropy-val">0.00</div>
+    </div>
+  </div>
+
+  <!-- Right bottom: probability chart -->
+  <div id="prob-panel">
+    <div class="panel-label">Measurement Probabilities</div>
+    <svg id="prob-svg"></svg>
+  </div>
+</div>
+
+<!-- Bottom: Algorithm Zoo strip -->
+<div id="zoo-panel">
+  <div style="font-family:var(--mono);font-size:0.6rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.12em;writing-mode:vertical-rl;transform:rotate(180deg);flex-shrink:0;align-self:center">Algorithm Zoo</div>
+</div>
+
+</div><!-- #app -->
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  QVis Frontend
+//  Step-through quantum protocol visualizer
+//  Uses embedded simulation data (no backend required for demo)
+// ════════════════════════════════════════════════════════════════
+
+const INV_SQRT2 = 1 / Math.sqrt(2);
+
+// ── Pure-JS quantum simulation (mirrors Python backend) ─────────
+function makeVec(n) { return new Array(1 << n).fill(null).map(() => ({re:0, im:0})); }
+function norm2(c) { return c.re*c.re + c.im*c.im; }
+function probs(sv) { return sv.map(norm2); }
+function mulCx(a, b) { return {re: a.re*b.re - a.im*b.im, im: a.re*b.im + a.im*b.re}; }
+function addCx(a, b) { return {re: a.re+b.re, im: a.im+b.im}; }
+
+function applySingle(sv, nq, t, g) { // g = [a,b,c,d] row-major
+  const stride = 1 << (nq - 1 - t);
+  const dim = sv.length;
+  for (let i = 0; i < dim; i += stride * 2)
+    for (let j = i; j < i + stride; j++) {
+      const a = sv[j], b = sv[j+stride];
+      sv[j]       = addCx(mulCx(g[0],a), mulCx(g[1],b));
+      sv[j+stride]= addCx(mulCx(g[2],a), mulCx(g[3],b));
+    }
+}
+
+function bitVal(idx, nq, q) { return (idx >> (nq-1-q)) & 1; }
+
+function applyControlled(sv, nq, ctrl, tgt, g) {
+  const dim = sv.length;
+  for (let i = 0; i < dim; i++) {
+    if (!bitVal(i,nq,ctrl)) continue;
+    if (bitVal(i,nq,tgt) !== 0) continue;
+    const partner = i ^ (1 << (nq-1-tgt));
+    const a = sv[i], b = sv[partner];
+    sv[i]       = addCx(mulCx(g[0],a), mulCx(g[1],b));
+    sv[partner] = addCx(mulCx(g[2],a), mulCx(g[3],b));
+  }
+}
+
+const GATE = {
+  H: [{re:INV_SQRT2,im:0},{re:INV_SQRT2,im:0},{re:INV_SQRT2,im:0},{re:-INV_SQRT2,im:0}],
+  X: [{re:0,im:0},{re:1,im:0},{re:1,im:0},{re:0,im:0}],
+  Z: [{re:1,im:0},{re:0,im:0},{re:0,im:0},{re:-1,im:0}],
+};
+
+function entropy(sv, nq) {
+  if (nq < 2) return 0;
+  const dimA = 2, dimB = sv.length / 2;
+  // Reduced density matrix ρ_A (2×2)
+  let rho = [[{re:0,im:0},{re:0,im:0}],[{re:0,im:0},{re:0,im:0}]];
+  for (let i = 0; i < 2; i++)
+    for (let j = 0; j < 2; j++)
+      for (let k = 0; k < dimB; k++) {
+        const a = sv[i*dimB+k], b = sv[j*dimB+k];
+        rho[i][j] = addCx(rho[i][j], mulCx(a, {re:b.re,im:-b.im}));
+      }
+  // Eigenvalues of 2×2 Hermitian via closed form
+  const a = rho[0][0].re, d = rho[1][1].re;
+  const b2 = norm2(rho[0][1]);
+  const disc = Math.sqrt(Math.max(0, ((a-d)/2)**2 + b2));
+  const mid = (a+d)/2;
+  const e1 = mid+disc, e2 = mid-disc;
+  let S = 0;
+  if (e1 > 1e-12) S -= e1 * Math.log2(e1);
+  if (e2 > 1e-12) S -= e2 * Math.log2(e2);
+  return Math.max(0, S);
+}
+
+function step(sv, nq, gate, tgt, ctrl, narrative, math='') {
+  return {
+    gate, target:tgt, control:ctrl,
+    probs: probs(sv),
+    entropy: entropy(sv, nq),
+    statevector: sv.map(c=>({...c})),
+    narrative, math
+  };
+}
+
+// ── Protocol builders ────────────────────────────────────────────
+
+function buildBell() {
+  const n=2; const sv=makeVec(n); sv[0]={re:1,im:0};
+  const steps=[];
+  steps.push(step(sv,n,'INIT',-1,-1,
+    'Both qubits start in |0⟩. The system is in state |00⟩ with 100% probability. No entanglement yet — these are two completely independent bits.',
+    '|ψ⟩ = |00⟩'));
+  applySingle(sv,n,0,GATE.H);
+  steps.push(step(sv,n,'H',0,-1,
+    'Hadamard on Alice\'s qubit creates superposition: Alice is simultaneously |0⟩ and |1⟩ with equal probability. Bob is still |0⟩. No entanglement yet — just local superposition.',
+    '|ψ⟩ = (|0⟩+|1⟩)/√2 ⊗ |0⟩'));
+  applyControlled(sv,n,0,1,GATE.X);
+  steps.push(step(sv,n,'CNOT',1,0,
+    'CNOT: Bob\'s qubit flips if Alice\'s is |1⟩. Because Alice was in superposition, the result is the Bell state |Φ+⟩ — maximum entanglement. Neither qubit has a definite state alone; they exist only as a joint system.',
+    '|Φ+⟩ = (|00⟩+|11⟩)/√2'));
+  return {
+    id:'bell', name:'Bell State', n_qubits:n,
+    qubit_labels:['Alice','Bob'],
+    description:'Two qubits become maximally entangled. The foundation of quantum teleportation, superdense coding, and quantum key distribution.',
+    speedup:null,
+    steps: steps.map((s,i)=>({...s,index:i,total:steps.length})),
+    circuit:[
+      {type:'h', qubit:0, col:1},
+      {type:'cnot', ctrl:0, tgt:1, col:2},
+    ]
+  };
+}
+
+function buildTeleport() {
+  const n=3; const sv=makeVec(n);
+  sv[0]={re:INV_SQRT2,im:0}; sv[4]={re:INV_SQRT2,im:0}; // |ψ⟩⊗|00⟩
+  const steps=[];
+  steps.push(step(sv,n,'INIT',-1,-1,
+    'Alice holds unknown qubit |ψ⟩=(|0⟩+|1⟩)/√2. Alice and Bob share a Bell pair (q1,q2). Goal: transfer |ψ⟩ to Bob using only 2 classical bits — no physical qubit transfer.',
+    '|ψ⟩⊗|00⟩'));
+  applySingle(sv,n,1,GATE.H);
+  steps.push(step(sv,n,'H',1,-1,
+    'Hadamard on Alice\'s half of the shared Bell pair (q1). Prepares for entanglement between Alice and Bob.',
+    'H on q1'));
+  applyControlled(sv,n,1,2,GATE.X);
+  steps.push(step(sv,n,'CNOT',2,1,
+    'CNOT entangles Alice (q1) and Bob (q2). Bob now travels far away — this entanglement link is the quantum resource that makes teleportation possible.',
+    '(|00⟩+|11⟩)/√2 for q1,q2'));
+  applyControlled(sv,n,0,1,GATE.X);
+  steps.push(step(sv,n,'CNOT',1,0,
+    'Alice begins her Bell measurement: CNOT between the message (q0) and her qubit (q1). This entangles the message with Alice\'s local system.',
+    "Alice's Bell measurement, step 1"));
+  applySingle(sv,n,0,GATE.H);
+  steps.push(step(sv,n,'H',0,-1,
+    'Hadamard on the message qubit completes Alice\'s Bell measurement. Alice measures her 2 qubits and gets 2 classical bits (00, 01, 10, or 11), which she sends to Bob.',
+    'Alice measures → 2 classical bits'));
+  applyControlled(sv,n,1,2,GATE.X);
+  steps.push(step(sv,n,'X-correction',2,1,
+    'Bob applies corrections based on Alice\'s bits. After corrections, Bob\'s qubit (q2) is in exactly Alice\'s original state |ψ⟩. Teleportation complete — the quantum state was transferred without moving the qubit!',
+    "Bob's q2 = Alice's original |ψ⟩ ✓"));
+  return {
+    id:'teleport', name:'Quantum Teleportation', n_qubits:n,
+    qubit_labels:['Message','Alice','Bob'],
+    description:'Transfer an unknown quantum state using entanglement + 2 classical bits. No qubit physically moves.',
+    speedup:null,
+    steps: steps.map((s,i)=>({...s,index:i,total:steps.length})),
+    circuit:[
+      {type:'h',qubit:1,col:1},{type:'cnot',ctrl:1,tgt:2,col:2},
+      {type:'cnot',ctrl:0,tgt:1,col:3},{type:'h',qubit:0,col:4},
+      {type:'measure',qubit:0,col:5},{type:'measure',qubit:1,col:5},
+      {type:'x',qubit:2,col:6},{type:'z',qubit:2,col:7},
+    ]
+  };
+}
+
+function buildGrover() {
+  const n=2; const sv=makeVec(n); sv[0]={re:1,im:0};
+  const steps=[];
+  steps.push(step(sv,n,'INIT',-1,-1,
+    'Start: |00⟩. Find marked item |11⟩ in a 4-item database. Classical worst case: 4 queries. Grover\'s algorithm: 1 oracle query for N=4. For N items: O(√N) quantum vs O(N) classical.',
+    '|ψ⟩ = |00⟩'));
+  applySingle(sv,n,0,GATE.H); applySingle(sv,n,1,GATE.H);
+  steps.push(step(sv,n,'H⊗H',0,-1,
+    'Hadamard on both qubits creates uniform superposition over all 4 states. Each |00⟩,|01⟩,|10⟩,|11⟩ has exactly 25% probability. The computer considers all 4 database entries simultaneously.',
+    '(|00⟩+|01⟩+|10⟩+|11⟩)/2'));
+  sv[3].re = -sv[3].re; sv[3].im = -sv[3].im; // oracle: phase flip |11⟩
+  steps.push(step(sv,n,'Oracle',-1,-1,
+    'Oracle marks target |11⟩ by flipping its phase (one quantum query, acting on all 4 superposed states simultaneously). Probabilities look unchanged — the marking is hidden in the phase.',
+    '(|00⟩+|01⟩+|10⟩−|11⟩)/2'));
+  // Diffusion: H⊗H, phase flip all except |00⟩, H⊗H
+  applySingle(sv,n,0,GATE.H); applySingle(sv,n,1,GATE.H);
+  for(let i=1;i<4;i++){sv[i].re=-sv[i].re;sv[i].im=-sv[i].im;}
+  applySingle(sv,n,0,GATE.H); applySingle(sv,n,1,GATE.H);
+  steps.push(step(sv,n,'Diffusion',-1,-1,
+    'Grover diffusion "inverts about the mean": amplitudes below average are boosted, above average are suppressed. After one oracle+diffusion cycle, |11⟩ has ~100% probability. One measurement finds the answer — 1 query instead of up to 4 classically.',
+    '|ψ⟩ ≈ |11⟩ — found in 1 query!'));
+  return {
+    id:'grover', name:"Grover's Search", n_qubits:n,
+    qubit_labels:['q0','q1'],
+    description:'Find a marked item in N items using O(√N) queries vs O(N) classical. For N=4: 1 query vs 4.',
+    speedup:{classical:'O(N)',quantum:'O(√N)',example:'4-item DB → 1 query'},
+    steps: steps.map((s,i)=>({...s,index:i,total:steps.length})),
+    circuit:[
+      {type:'h',qubit:0,col:1},{type:'h',qubit:1,col:1},
+      {type:'oracle',qubits:[0,1],col:2},
+      {type:'diffusion',qubits:[0,1],col:3},
+    ]
+  };
+}
+
+function buildDeutsch() {
+  const n=2; const sv=makeVec(n); sv[1]={re:1,im:0}; // |01⟩
+  const steps=[];
+  steps.push(step(sv,n,'INIT',-1,-1,
+    'Start: |0⟩|1⟩. Is f constant (always 0 or always 1) or balanced (half 0s, half 1s)? Classical worst case: N/2+1 queries. Quantum: always exactly 1 query. The first proven quantum speedup (Deutsch-Jozsa, 1992).',
+    '|ψ⟩ = |0⟩|1⟩'));
+  applySingle(sv,n,0,GATE.H); applySingle(sv,n,1,GATE.H);
+  steps.push(step(sv,n,'H⊗H',0,-1,
+    'Hadamard on both qubits. The ancilla enters |−⟩, enabling phase kickback: f(x) will be encoded as a phase rather than an output bit. This is the quantum trick that collapses N/2 queries into just 1.',
+    '(|0⟩+|1⟩)|−⟩/√2'));
+  applyControlled(sv,n,0,1,GATE.X); // oracle for f(x)=x (balanced)
+  steps.push(step(sv,n,'Oracle (balanced f)',1,0,
+    'Oracle for f(x)=x (balanced). Via phase kickback, the input qubit acquires phase (−1)^f(x). The function is encoded into the amplitude phases — no separate output qubit needed.',
+    '|x⟩|−⟩ → (−1)^f(x)|x⟩|−⟩'));
+  applySingle(sv,n,0,GATE.H);
+  steps.push(step(sv,n,'H (readout)',0,-1,
+    'Final Hadamard on input qubit. CONSTANT f → measure |0⟩ with 100% probability. BALANCED f (this case) → measure |1⟩ with 100% probability. Definitive answer in exactly 1 query.',
+    'Measure |0⟩ → constant | Measure |1⟩ → balanced'));
+  return {
+    id:'deutsch', name:'Deutsch-Jozsa', n_qubits:n,
+    qubit_labels:['Input','Ancilla'],
+    description:'Distinguish constant from balanced functions in exactly 1 query. The first proven quantum speedup (1992).',
+    speedup:{classical:'O(N/2)',quantum:'O(1)',example:'Always 1 query'},
+    steps: steps.map((s,i)=>({...s,index:i,total:steps.length})),
+    circuit:[
+      {type:'h',qubit:0,col:1},{type:'h',qubit:1,col:1},
+      {type:'oracle-dj',ctrl:0,tgt:1,col:2},
+      {type:'h',qubit:0,col:3},
+      {type:'measure',qubit:0,col:4},
+    ]
+  };
+}
+
+// ── Backend integration ──────────────────────────────────────────
+// these variables track whether the Flask server is reachable and what engine it's using.
+// port 8080 avoids conflict with macOS AirPlay Receiver (which squats port 5000).
+const API_BASE = 'http://localhost:8080';
+let backendAvailable = false;
+
+// static metadata for each protocol: the circuit layout (purely visual),
+// the id, and the speedup badge text.
+// this lives in the frontend because it's display logic, not simulation math.
+const PROTOCOL_META = {
+  bell: {
+    id: 'bell', name: 'Bell State', n_qubits: 2, n_steps: 3,
+    speedup: null,
+    circuit: [
+      {type:'h', qubit:0, col:1},
+      {type:'cnot', ctrl:0, tgt:1, col:2},
+    ]
+  },
+  teleport: {
+    id: 'teleport', name: 'Quantum Teleportation', n_qubits: 3, n_steps: 6,
+    speedup: null,
+    circuit: [
+      {type:'h',qubit:1,col:1}, {type:'cnot',ctrl:1,tgt:2,col:2},
+      {type:'cnot',ctrl:0,tgt:1,col:3}, {type:'h',qubit:0,col:4},
+      {type:'measure',qubit:0,col:5}, {type:'measure',qubit:1,col:5},
+      {type:'x',qubit:2,col:6}, {type:'z',qubit:2,col:7},
+    ]
+  },
+  grover: {
+    id: 'grover', name: "Grover's Search", n_qubits: 2, n_steps: 4,
+    speedup: {classical:'O(N)', quantum:'O(√N)', example:'4-item DB → 1 query'},
+    circuit: [
+      {type:'h',qubit:0,col:1}, {type:'h',qubit:1,col:1},
+      {type:'oracle',qubits:[0,1],col:2},
+      {type:'diffusion',qubits:[0,1],col:3},
+    ]
+  },
+  deutsch: {
+    id: 'deutsch', name: 'Deutsch-Jozsa', n_qubits: 2, n_steps: 4,
+    speedup: {classical:'O(N/2)', quantum:'O(1)', example:'Always 1 query'},
+    circuit: [
+      {type:'h',qubit:0,col:1}, {type:'h',qubit:1,col:1},
+      {type:'oracle-dj',ctrl:0,tgt:1,col:2},
+      {type:'h',qubit:0,col:3},
+      {type:'measure',qubit:0,col:4},
+    ]
+  },
+};
+
+// ping the backend's /api/health endpoint.
+// returns the health JSON if the server is up, or null if unreachable.
+async function checkBackend() {
+  try {
+    // AbortController lets us set a timeout — 1.5 seconds, then give up.
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 1500);
+    const r = await fetch(`${API_BASE}/api/health`, {signal: ctrl.signal});
+    const data = await r.json();
+    backendAvailable = true;
+    return data;
+  } catch(e) {
+    backendAvailable = false;
+    return null;  // server not running — that's okay, we'll use JS fallback
+  }
+}
+
+// update the "Engine: ..." badge in the header based on what the backend reports.
+function updateEngineBadge(health) {
+  const badge = document.getElementById('engine-badge');
+  if (health && health.engine === 'cpp') {
+    badge.textContent = 'Engine: C++';
+    badge.style.color = 'var(--green)';
+    badge.style.borderColor = 'rgba(52,211,153,0.4)';
+  } else if (health && health.engine === 'python') {
+    badge.textContent = 'Engine: Python';
+    badge.style.color = 'var(--cyan)';
+    badge.style.borderColor = 'rgba(34,211,238,0.4)';
+  } else {
+    badge.textContent = 'Engine: JS';
+    badge.style.color = 'var(--text-muted)';
+    badge.style.borderColor = '';
+  }
+}
+
+// call the Flask API to get a protocol's simulation data.
+// if the backend is down or errors, fall back to the JS simulation.
+async function fetchProtocol(pid) {
+  const meta = PROTOCOL_META[pid];
+  if (!backendAvailable) {
+    return buildLocal(pid);  // no server — use embedded JS simulation
+  }
+  try {
+    const r = await fetch(`${API_BASE}/api/protocol/${pid}`);
+    if (!r.ok) throw new Error(r.statusText);
+    const data = await r.json();
+    // merge: simulation data (steps, probs, entropy) from backend +
+    //        visual metadata (circuit layout, speedup badge) from PROTOCOL_META
+    return { ...data, ...meta };
+  } catch(e) {
+    console.warn('backend fetch failed, using JS fallback:', e.message);
+    backendAvailable = false;
+    updateEngineBadge(null);
+    return buildLocal(pid);
+  }
+}
+
+// run the local JS simulation for a given protocol id.
+// this is the original simulation code, kept as a fallback.
+function buildLocal(pid) {
+  const builders = {bell: buildBell, teleport: buildTeleport, grover: buildGrover, deutsch: buildDeutsch};
+  return builders[pid] ? builders[pid]() : null;
+}
+
+// ── Algorithm Zoo data ────────────────────────────────────────────
+const ZOO_ENTRIES = [
+  {name:"Shor's Factoring",speedup:"Superpolynomial",desc:"Factor N-bit integers. Breaks RSA. Needs ~2000 logical qubits for 2048-bit RSA."},
+  {name:"Grover's Search",speedup:"Polynomial (quadratic)",desc:"O(√N) vs O(N). Used in this visualizer. Basis of quantum collision finding."},
+  {name:"Deutsch-Jozsa",speedup:"Exponential (oracular)",desc:"O(1) vs O(N/2). Shown in this visualizer. First proven quantum speedup (1992)."},
+  {name:"HHL Linear Systems",speedup:"Exponential (sparse)",desc:"Solve Ax=b in O(log N). Exponential speedup over classical Gaussian elimination."},
+  {name:"Quantum Simulation",speedup:"Superpolynomial",desc:"Simulate quantum systems. Feynman's original motivation for quantum computers."},
+  {name:"QAOA",speedup:"Superpolynomial",desc:"Quantum Approximate Optimization. Combinatorial optimization via variational circuits."},
+  {name:"QFT / Phase Est.",speedup:"Superpolynomial",desc:"Quantum Fourier Transform. Core subroutine of Shor's algorithm and many others."},
+  {name:"Bernstein-Vazirani",speedup:"Polynomial",desc:"Find hidden string in 1 query vs N. Related to Grover; uses Hadamard interference."},
+];
+
+// ── State ────────────────────────────────────────────────────────
+let currentProtocol = null;
+let currentStep = 0;
+
+// ── Circuit rendering ─────────────────────────────────────────────
+const CIRC_ROW_H = 50;
+const CIRC_COL_W = 70;
+const CIRC_PAD_L = 80;
+const CIRC_PAD_T = 30;
+const GATE_W = 36, GATE_H2 = 24;
+
+const GATE_COLORS = {
+  H:     {fill:'rgba(124,109,248,0.2)', stroke:'#7c6df8'},
+  CNOT:  {fill:'rgba(34,211,238,0.15)', stroke:'#22d3ee'},
+  X:     {fill:'rgba(244,114,182,0.2)', stroke:'#f472b6'},
+  Z:     {fill:'rgba(251,191,36,0.2)',  stroke:'#fbbf24'},
+  'H⊗H': {fill:'rgba(124,109,248,0.2)',stroke:'#7c6df8'},
+  Oracle:{fill:'rgba(251,146,60,0.2)', stroke:'#fb923c'},
+  Diffusion:{fill:'rgba(52,211,153,0.2)',stroke:'#34d399'},
+  'X-correction':{fill:'rgba(52,211,153,0.2)',stroke:'#34d399'},
+  DEFAULT:{fill:'rgba(120,130,200,0.1)',stroke:'rgba(120,130,200,0.4)'},
+};
+
+function drawCircuit(protocol, activeIdx) {
+  const svg = document.getElementById('circuit-svg');
+  svg.innerHTML = '';
+  const nq = protocol.n_qubits;
+  const circuit = protocol.circuit || [];
+  const maxCol = Math.max(...circuit.map(g=>g.col||0), 1) + 1;
+  const W = CIRC_PAD_L + maxCol * CIRC_COL_W + 40;
+  const H = CIRC_PAD_T * 2 + nq * CIRC_ROW_H;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('height', H);
+
+  function el(tag, attrs={}) {
+    const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));
+    return e;
+  }
+  function gy(q) { return CIRC_PAD_T + q * CIRC_ROW_H + CIRC_ROW_H/2; }
+  function gx(col) { return CIRC_PAD_L + col * CIRC_COL_W; }
+
+  // Wires
+  for (let q=0;q<nq;q++) {
+    const y = gy(q);
+    svg.appendChild(el('line',{x1:10,y1:y,x2:W-10,y2:y,class:'wire'}));
+    svg.appendChild(el('text',{x:14,y:y-6,class:'wire-label',fill:'#6b7299',
+      'font-family':'Space Mono, monospace','font-size':'10'}))
+      .textContent = protocol.qubit_labels[q] || `q${q}`;
+    svg.appendChild(el('text',{x:14,y:y+16,class:'qubit-init',fill:'#3a3f5e',
+      'font-family':'Space Mono, monospace','font-size':'10'}))
+      .textContent = '|0⟩';
+  }
+
+  // Active step cursor
+  const step = protocol.steps[activeIdx];
+  if (step && step.gate !== 'INIT') {
+    // find active col from circuit definition
+    const activeGate = circuit.find(g => {
+      if (g.type==='cnot'||g.type==='oracle-dj') return g.col <= activeIdx;
+      return g.col <= activeIdx;
+    });
+    const activeCols = circuit.filter(g=>g.col===activeIdx);
+    if (activeCols.length) {
+      const cx_ = gx(activeIdx);
+      const cursor = el('rect',{
+        x: cx_ - GATE_W/2 - 6,
+        y: CIRC_PAD_T - 8,
+        width: GATE_W + 12,
+        height: H - CIRC_PAD_T + 4,
+        rx:6,
+        class:'active-cursor'
+      });
+      svg.appendChild(cursor);
+    }
+  }
+
+  // Gates
+  circuit.forEach(g => {
+    const col = g.col;
+    const isActive = (col === activeIdx);
+    const isPast = (col < activeIdx);
+    const alpha = isPast ? 0.5 : (isActive ? 1.0 : 0.3);
+
+    if (g.type === 'h') {
+      const c = isActive ? GATE_COLORS.H : GATE_COLORS.DEFAULT;
+      const x = gx(col), y = gy(g.qubit);
+      const rect = el('rect',{
+        x:x-GATE_W/2,y:y-GATE_H2/2,
+        width:GATE_W,height:GATE_H2,rx:4,
+        fill:isPast||isActive?c.fill:'rgba(20,22,40,0.5)',
+        stroke:c.stroke,
+        'stroke-width':isActive?2:1,
+        opacity:alpha
+      });
+      svg.appendChild(rect);
+      const t = el('text',{x,y,class:'gate-text',
+        'font-family':'Space Mono, monospace','font-size':'11',
+        'text-anchor':'middle','dominant-baseline':'middle',
+        fill:isActive?'#a78bfa':'#6b7299',opacity:alpha,'font-weight':'700'});
+      t.textContent = 'H';
+      svg.appendChild(t);
+    }
+
+    else if (g.type === 'cnot' || g.type === 'oracle-dj') {
+      const ctrl = g.ctrl, tgt = g.tgt;
+      const x = gx(col);
+      const c = isActive ? GATE_COLORS.CNOT : GATE_COLORS.DEFAULT;
+      // vertical line
+      svg.appendChild(el('line',{
+        x1:x,y1:gy(Math.min(ctrl,tgt)),
+        x2:x,y2:gy(Math.max(ctrl,tgt)),
+        stroke:c.stroke,'stroke-width':isActive?2:1,opacity:alpha
+      }));
+      // control dot
+      svg.appendChild(el('circle',{
+        cx:x,cy:gy(ctrl),r:5,
+        fill:c.stroke,opacity:alpha
+      }));
+      // target circle (⊕)
+      const ty = gy(tgt);
+      svg.appendChild(el('circle',{
+        cx:x,cy:ty,r:10,
+        fill:isActive?c.fill:'rgba(20,22,40,0.5)',
+        stroke:c.stroke,'stroke-width':isActive?2:1,opacity:alpha
+      }));
+      svg.appendChild(el('line',{x1:x-8,y1:ty,x2:x+8,y2:ty,
+        stroke:c.stroke,'stroke-width':isActive?2:1,opacity:alpha}));
+      svg.appendChild(el('line',{x1:x,y1:ty-8,x2:x,y2:ty+8,
+        stroke:c.stroke,'stroke-width':isActive?2:1,opacity:alpha}));
+    }
+
+    else if (g.type === 'oracle' || g.type === 'diffusion') {
+      const qs = g.qubits || [0,1];
+      const x = gx(col);
+      const y1 = gy(qs[0]) - GATE_H2/2;
+      const y2 = gy(qs[qs.length-1]) + GATE_H2/2;
+      const isOracle = g.type==='oracle';
+      const c = isOracle ? GATE_COLORS.Oracle : GATE_COLORS.Diffusion;
+      svg.appendChild(el('rect',{
+        x:x-GATE_W/2,y:y1,width:GATE_W,height:y2-y1,rx:4,
+        fill:isPast||isActive?c.fill:'rgba(20,22,40,0.5)',
+        stroke:c.stroke,'stroke-width':isActive?2:1,opacity:alpha
+      }));
+      const mid = (y1+y2)/2;
+      const t = el('text',{x,y:mid,
+        'font-family':'Space Mono, monospace','font-size':'9',
+        'text-anchor':'middle','dominant-baseline':'middle',
+        fill:isActive?c.stroke:'#6b7299',opacity:alpha,'font-weight':'700'});
+      t.textContent = isOracle ? 'Uf' : 'Diff';
+      svg.appendChild(t);
+    }
+
+    else if (g.type === 'measure') {
+      const x = gx(col), y = gy(g.qubit);
+      svg.appendChild(el('rect',{
+        x:x-GATE_W/2,y:y-GATE_H2/2,width:GATE_W,height:GATE_H2,rx:4,
+        fill:'rgba(251,146,60,0.12)',stroke:'#fb923c',
+        'stroke-width':isActive?2:1,opacity:alpha
+      }));
+      // Meter arc
+      const t = el('text',{x,y:y+1,
+        'font-family':'Space Mono, monospace','font-size':'12',
+        'text-anchor':'middle','dominant-baseline':'middle',
+        fill:'#fb923c',opacity:alpha});
+      t.textContent = '⊗';
+      svg.appendChild(t);
+    }
+
+    else if (g.type === 'x' || g.type === 'z') {
+      const c = g.type==='x' ? GATE_COLORS.X : GATE_COLORS.Z;
+      const x = gx(col), y = gy(g.qubit);
+      svg.appendChild(el('rect',{
+        x:x-GATE_W/2,y:y-GATE_H2/2,width:GATE_W,height:GATE_H2,rx:4,
+        fill:isPast||isActive?c.fill:'rgba(20,22,40,0.5)',
+        stroke:c.stroke,'stroke-width':isActive?2:1,opacity:alpha
+      }));
+      const t = el('text',{x,y,
+        'font-family':'Space Mono, monospace','font-size':'11',
+        'text-anchor':'middle','dominant-baseline':'middle',
+        fill:isActive?c.stroke:'#6b7299',opacity:alpha,'font-weight':'700'});
+      t.textContent = g.type.toUpperCase();
+      svg.appendChild(t);
+    }
+  });
+}
+
+// ── Probability chart (D3) ───────────────────────────────────────
+let probChart = null;
+function initProbChart(nq) {
+  const container = document.getElementById('prob-panel');
+  const W = container.clientWidth - 48;
+  const H = 120;
+  const svg = d3.select('#prob-svg').attr('width',W).attr('height',H);
+  svg.selectAll('*').remove();
+  const n = 1<<nq;
+  const labels = Array.from({length:n},(_,i)=>'|'+i.toString(2).padStart(nq,'0')+'⟩');
+  const x = d3.scaleBand().domain(labels).range([28,W-8]).padding(0.25);
+  const y = d3.scaleLinear().domain([0,1]).range([H-24,4]);
+
+  const bars = svg.append('g').selectAll('rect').data(labels)
+    .join('rect')
+    .attr('x',d=>x(d)).attr('y',y(0))
+    .attr('width',x.bandwidth()).attr('height',0)
+    .attr('rx',3)
+    .attr('fill','#7c6df8');
+
+  const vals = svg.append('g').selectAll('text.val').data(labels)
+    .join('text').attr('class','val')
+    .attr('x',d=>x(d)+x.bandwidth()/2)
+    .attr('y',H-4)
+    .attr('text-anchor','middle')
+    .attr('font-family','Space Mono, monospace').attr('font-size',9)
+    .attr('fill','#6b7299');
+
+  svg.append('g').call(d3.axisLeft(y).ticks(3).tickFormat(d=>Math.round(d*100)+'%'))
+    .attr('transform','translate(28,0)')
+    .call(g=>{g.select('.domain').remove();g.selectAll('line').attr('stroke','rgba(120,130,200,0.15)');g.selectAll('text').attr('fill','#3a3f5e').attr('font-family','Space Mono, monospace').attr('font-size',8);});
+
+  svg.append('g').selectAll('text.lbl').data(labels)
+    .join('text').attr('class','lbl')
+    .attr('x',d=>x(d)+x.bandwidth()/2).attr('y',H-12)
+    .attr('text-anchor','middle')
+    .attr('font-family','Space Mono, monospace').attr('font-size',9).attr('fill','#3a3f5e')
+    .text(d=>d);
+
+  probChart = {bars, vals, x, y, W, H, labels};
+}
+
+function updateProbChart(ps) {
+  if (!probChart) return;
+  const {bars, vals, x, y, H} = probChart;
+  const BAR_COLORS = ['#7c6df8','#22d3ee','#f472b6','#34d399','#fbbf24','#fb923c','#a78bfa','#67e8f9'];
+  bars.data(ps)
+    .transition().duration(400).ease(d3.easeCubicOut)
+    .attr('y',d=>y(d))
+    .attr('height',d=>Math.max(0,y(0)-y(d)))
+    .attr('fill',(d,i)=>ps[i]>0.02?BAR_COLORS[i%BAR_COLORS.length]:'#1a1d30');
+  vals.data(ps)
+    .text(d=>d>0.01?Math.round(d*100)+'%':'')
+    .attr('y',(d)=>y(d)-4)
+    .attr('fill',(d,i)=>ps[i]>0.02?BAR_COLORS[i%BAR_COLORS.length]:'#3a3f5e');
+}
+
+// ── Narrative update ──────────────────────────────────────────────
+function updateNarrative(step) {
+  const gateEl = document.getElementById('gate-label');
+  const narEl = document.getElementById('narrative-text');
+  const mathEl = document.getElementById('math-hint');
+  const entropyRow = document.getElementById('entropy-row');
+  const entropyFill = document.getElementById('entropy-fill');
+  const entropyVal = document.getElementById('entropy-val');
+
+  gateEl.textContent = step.gate === 'INIT' ? 'Initial State' : `Gate: ${step.gate}`;
+  narEl.textContent = step.narrative;
+  narEl.classList.add('fade-in');
+  setTimeout(()=>narEl.classList.remove('fade-in'),300);
+
+  if (step.math) {
+    mathEl.textContent = step.math;
+    mathEl.style.display = 'block';
+  } else {
+    mathEl.style.display = 'none';
+  }
+
+  // Entropy meter (max entropy for n qubits is log2(n))
+  const maxS = 1.0; // normalized to 1 for display
+  const pct = Math.min(100, step.entropy * 100);
+  entropyFill.style.width = pct + '%';
+  entropyVal.textContent = step.entropy.toFixed(2);
+  entropyRow.style.display = 'flex';
+}
+
+// ── Step navigation ───────────────────────────────────────────────
+function gotoStep(idx) {
+  if (!currentProtocol) return;
+  idx = Math.max(0, Math.min(idx, currentProtocol.steps.length-1));
+  currentStep = idx;
+  const step = currentProtocol.steps[idx];
+  updateNarrative(step);
+  updateProbChart(step.probs);
+  drawCircuit(currentProtocol, idx);
+  // dots
+  document.querySelectorAll('.step-dot').forEach((d,i)=>{
+    d.className = 'step-dot' + (i===idx?' active':(i<idx?' visited':''));
+  });
+  document.getElementById('step-num').textContent = idx+1;
+  document.getElementById('btn-prev').disabled = (idx===0);
+  document.getElementById('btn-next').disabled = (idx===currentProtocol.steps.length-1);
+}
+
+async function loadProtocol(pid) {
+  // fetch simulation data from backend (or JS fallback) — await pauses here until data arrives
+  const proto = await fetchProtocol(pid);
+  if (!proto) return;
+  currentProtocol = proto;
+  currentStep = 0;
+
+  // Update header
+  document.getElementById('proto-title').textContent = proto.name;
+  document.getElementById('proto-desc').textContent = proto.description;
+
+  const badge = document.getElementById('speedup-badge');
+  if (proto.speedup) {
+    badge.innerHTML = `Classical: ${proto.speedup.classical}<br>Quantum: ${proto.speedup.quantum}<br><span style="color:var(--text-dim)">${proto.speedup.example}</span>`;
+    badge.style.display = 'block';
+  } else {
+    badge.style.display = 'none';
+  }
+
+  // Protocol buttons
+  document.querySelectorAll('.proto-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.id===pid);
+  });
+
+  // Step dots
+  const dotsEl = document.getElementById('step-dots');
+  dotsEl.innerHTML = '';
+  proto.steps.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'step-dot';
+    d.onclick = () => gotoStep(i);
+    dotsEl.appendChild(d);
+  });
+
+  document.getElementById('step-total').textContent = proto.steps.length;
+
+  // Init chart
+  initProbChart(proto.n_qubits);
+  gotoStep(0);
+
+  // Highlight relevant zoo cards
+  document.querySelectorAll('.zoo-card').forEach(c=>{
+    const name = c.querySelector('.zoo-name').textContent.toLowerCase();
+    const matches = (pid==='grover'&&name.includes('grover')) ||
+                    (pid==='deutsch'&&name.includes('deutsch')) ||
+                    (pid==='bell'&&(name.includes('teleport')||name.includes('qft'))) ||
+                    (pid==='teleport'&&name.includes('teleport'));
+    c.classList.toggle('highlighted', matches);
+  });
+}
+
+// ── Init UI ───────────────────────────────────────────────────────
+async function init() {
+  // check if the Flask backend is running — sets backendAvailable and updates the badge
+  const health = await checkBackend();
+  updateEngineBadge(health);
+
+  // build the protocol selector buttons from PROTOCOL_META.
+  // we use static metadata here so the navbar appears instantly,
+  // before any async fetches happen.
+  const bar = document.getElementById('protocol-bar');
+  Object.values(PROTOCOL_META).forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'proto-btn';
+    btn.dataset.id = p.id;
+    btn.innerHTML = `${p.name} <span class="qubit-badge">${p.n_qubits}q · ${p.n_steps} steps</span>`;
+    btn.onclick = () => loadProtocol(p.id);
+    bar.appendChild(btn);
+  });
+
+  // Step controls
+  document.getElementById('btn-prev').onclick = ()=>gotoStep(currentStep-1);
+  document.getElementById('btn-next').onclick = ()=>gotoStep(currentStep+1);
+  document.getElementById('btn-reset').onclick = ()=>gotoStep(0);
+
+  // Keyboard navigation
+  document.addEventListener('keydown', e=>{
+    if (!currentProtocol) return;
+    if (e.key==='ArrowRight'||e.key===' ') { e.preventDefault(); gotoStep(currentStep+1); }
+    if (e.key==='ArrowLeft') { e.preventDefault(); gotoStep(currentStep-1); }
+    if (e.key==='Home') gotoStep(0);
+    if (e.key==='End') gotoStep(currentProtocol.steps.length-1);
+  });
+
+  // Zoo strip
+  const zoo = document.getElementById('zoo-panel');
+  ZOO_ENTRIES.forEach(e=>{
+    const card = document.createElement('div');
+    card.className = 'zoo-card';
+    card.innerHTML = `<div class="zoo-name">${e.name}</div>
+      <div class="zoo-speedup">↑ ${e.speedup}</div>
+      <div class="zoo-desc">${e.desc}</div>`;
+    zoo.appendChild(card);
+  });
+
+  // load the bell state protocol on startup (no await — let it render in background)
+  loadProtocol('bell');
+}
+
+window.addEventListener('load', init);
+window.addEventListener('resize', ()=>{
+  if (currentProtocol) { initProbChart(currentProtocol.n_qubits); updateProbChart(currentProtocol.steps[currentStep].probs); }
+});
+</script>
+</body>
+</html>

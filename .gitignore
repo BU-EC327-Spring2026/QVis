@@ -1,0 +1,10 @@
+# compiled binaries — machine-specific, always regenerate from source with g++
+qvis_engine
+qvis_test
+
+# macOS metadata files — created automatically by Finder, not part of the project
+.DS_Store
+
+# python bytecode cache — created automatically when you run .py files
+__pycache__/
+*.pyc
