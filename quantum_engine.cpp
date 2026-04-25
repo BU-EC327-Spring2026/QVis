@@ -154,6 +154,96 @@ void Gates::I(cx out[4]) {
 }
 
 // ════════════════════════════════════════════════════════════════
+//  Polymorphic gate model
+// ════════════════════════════════════════════════════════════════
+
+QuantumGate::QuantumGate(std::string name, int target, int control,
+                         std::string narrative, std::string math_hint)
+    : name_(std::move(name)),
+      target_(target),
+      control_(control),
+      narrative_(std::move(narrative)),
+      math_hint_(std::move(math_hint)) {}
+
+const std::string& QuantumGate::name() const { return name_; }
+int QuantumGate::target() const { return target_; }
+int QuantumGate::control() const { return control_; }
+const std::string& QuantumGate::narrative() const { return narrative_; }
+const std::string& QuantumGate::math_hint() const { return math_hint_; }
+
+SingleQubitGate::SingleQubitGate(std::string name, int target, GateFactory factory,
+                                 std::string narrative, std::string math_hint)
+    : QuantumGate(std::move(name), target, -1, std::move(narrative), std::move(math_hint)),
+      factory_(std::move(factory)) {}
+
+void SingleQubitGate::apply(Vec& sv, int n_qubits) const {
+    cx gate[4];
+    factory_(gate);
+    apply_single(sv, n_qubits, target(), gate);
+}
+
+ParallelSingleQubitGate::ParallelSingleQubitGate(std::string name,
+                                                 std::vector<int> targets,
+                                                 GateFactory factory,
+                                                 std::string narrative,
+                                                 std::string math_hint)
+    : QuantumGate(std::move(name), targets.empty() ? -1 : targets.front(), -1,
+                  std::move(narrative), std::move(math_hint)),
+      targets_(std::move(targets)),
+      factory_(std::move(factory)) {}
+
+void ParallelSingleQubitGate::apply(Vec& sv, int n_qubits) const {
+    cx gate[4];
+    factory_(gate);
+    for (int target : targets_) {
+        apply_single(sv, n_qubits, target, gate);
+    }
+}
+
+ControlledGate::ControlledGate(std::string name, int control, int target,
+                               GateFactory factory, std::string narrative,
+                               std::string math_hint)
+    : QuantumGate(std::move(name), target, control, std::move(narrative), std::move(math_hint)),
+      factory_(std::move(factory)) {}
+
+void ControlledGate::apply(Vec& sv, int n_qubits) const {
+    cx gate[4];
+    factory_(gate);
+    apply_controlled(sv, n_qubits, control(), target(), gate);
+}
+
+PhaseOracleGate::PhaseOracleGate(std::string name, int marked_state,
+                                 std::string narrative, std::string math_hint)
+    : QuantumGate(std::move(name), -1, -1, std::move(narrative), std::move(math_hint)),
+      marked_state_(marked_state) {}
+
+void PhaseOracleGate::apply(Vec& sv, int n_qubits) const {
+    int dim = 1 << n_qubits;
+    if (marked_state_ < 0 || marked_state_ >= dim) {
+        throw std::out_of_range("marked state is outside the statevector");
+    }
+    sv[marked_state_] = -sv[marked_state_];
+}
+
+DiffusionGate::DiffusionGate(std::string name, std::string narrative,
+                             std::string math_hint)
+    : QuantumGate(std::move(name), -1, -1, std::move(narrative), std::move(math_hint)) {}
+
+void DiffusionGate::apply(Vec& sv, int) const {
+    cx mean = 0;
+    for (const auto& amp : sv) mean += amp;
+    mean /= static_cast<double>(sv.size());
+    for (auto& amp : sv) amp = 2.0 * mean - amp;
+}
+
+Circuit::Circuit(int n_qubits, Vec initial_state)
+    : n_qubits_(n_qubits), initial_state_(std::move(initial_state)) {}
+
+void Circuit::add_gate(std::unique_ptr<QuantumGate> gate) {
+    gates_.push_back(std::move(gate));
+}
+
+// ════════════════════════════════════════════════════════════════
 //  Step builder helper
 // ════════════════════════════════════════════════════════════════
 
@@ -176,6 +266,23 @@ static Step make_step(
     s.narrative     = narrative;
     s.math_hint     = math_hint;
     return s;
+}
+
+std::vector<Step> Circuit::run(const std::string& initial_narrative,
+                               const std::string& initial_math_hint) const {
+    Vec sv = initial_state_;
+    std::vector<Step> steps;
+    steps.push_back(make_step(sv, n_qubits_, "INIT", -1, -1,
+                              initial_narrative, initial_math_hint));
+
+    for (const auto& gate : gates_) {
+        gate->apply(sv, n_qubits_);
+        steps.push_back(make_step(sv, n_qubits_, gate->name(), gate->target(),
+                                  gate->control(), gate->narrative(),
+                                  gate->math_hint()));
+    }
+
+    return steps;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -420,55 +527,39 @@ Protocol make_grover_3qubit() {
     Vec sv(8, cx(0,0));
     sv[0] = 1.0; // |000⟩
 
-    p.steps.push_back(make_step(sv, 3, "INIT", -1, -1,
-        "Three qubits start in |000⟩. Goal: find the marked item |111⟩ in a database of 8. "
-        "Classical worst case: 8 queries. Grover's algorithm needs only 2 — a √8 ≈ 2.8× speedup.",
-        "|ψ⟩ = |000⟩"));
-
-    cx h[4]; Gates::H(h);
-    apply_single(sv, 3, 0, h);
-    apply_single(sv, 3, 1, h);
-    apply_single(sv, 3, 2, h);
-    p.steps.push_back(make_step(sv, 3, "H⊗H⊗H", 0, -1,
+    Circuit circuit(3, sv);
+    circuit.add_gate(std::unique_ptr<QuantumGate>(new ParallelSingleQubitGate(
+        "H⊗H⊗H", {0, 1, 2}, Gates::H,
         "Hadamard on all 3 qubits creates a uniform superposition over all 8 states. "
         "Each of |000⟩ through |111⟩ has exactly 12.5% probability. "
         "The computer now considers all 8 database entries simultaneously.",
-        "(|000⟩+|001⟩+…+|111⟩)/√8"));
-
-    // Helper: Grover diffusion via inversion about the mean
-    auto diffuse = [&]() {
-        cx mean = 0;
-        for (auto& a : sv) mean += a;
-        mean /= (double)sv.size();
-        for (auto& a : sv) a = 2.0*mean - a;
-    };
-
-    // Iteration 1: oracle (phase-flip |111⟩ = index 7) + diffusion
-    sv[7] = -sv[7];
-    p.steps.push_back(make_step(sv, 3, "Oracle", -1, -1,
+        "(|000⟩+|001⟩+…+|111⟩)/√8")));
+    circuit.add_gate(std::unique_ptr<QuantumGate>(new PhaseOracleGate(
+        "Oracle", 7,
         "The oracle marks |111⟩ by flipping its phase. Probabilities look identical — the change "
         "is hidden in the sign of the amplitude. This is one quantum query acting on all 8 states at once.",
-        "(|000⟩+…−|111⟩)/√8"));
-
-    diffuse();
-    p.steps.push_back(make_step(sv, 3, "Diffusion", -1, -1,
+        "(|000⟩+…−|111⟩)/√8")));
+    circuit.add_gate(std::unique_ptr<QuantumGate>(new DiffusionGate(
+        "Diffusion",
         "Grover diffusion (inversion about the mean) amplifies |111⟩ and suppresses the rest. "
         "After just one oracle+diffusion cycle, |111⟩ has ~78% probability. "
         "A second iteration will push it past 94%.",
-        "P(|111⟩) ≈ 78% after 1 iteration"));
-
-    // Iteration 2
-    sv[7] = -sv[7];
-    p.steps.push_back(make_step(sv, 3, "Oracle ×2", -1, -1,
+        "P(|111⟩) ≈ 78% after 1 iteration")));
+    circuit.add_gate(std::unique_ptr<QuantumGate>(new PhaseOracleGate(
+        "Oracle ×2", 7,
         "Second oracle query: phase-flip |111⟩ again. This is the full quantum budget — "
         "2 queries for 8 items, vs 8 classically. The phase difference is now even more pronounced.",
-        "Phase flip ×2"));
-
-    diffuse();
-    p.steps.push_back(make_step(sv, 3, "Diffusion ×2", -1, -1,
+        "Phase flip ×2")));
+    circuit.add_gate(std::unique_ptr<QuantumGate>(new DiffusionGate(
+        "Diffusion ×2",
         "Second diffusion round. |111⟩ now has ~94.5% probability — one measurement almost "
         "certainly finds the answer. This is the quantum advantage: 2 queries vs 8 classical.",
-        "P(|111⟩) ≈ 94.5% — answer found in 2 queries!"));
+        "P(|111⟩) ≈ 94.5% — answer found in 2 queries!")));
+
+    p.steps = circuit.run(
+        "Three qubits start in |000⟩. Goal: find the marked item |111⟩ in a database of 8. "
+        "Classical worst case: 8 queries. Grover's algorithm needs only 2 — a √8 ≈ 2.8× speedup.",
+        "|ψ⟩ = |000⟩");
 
     return p;
 }

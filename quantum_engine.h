@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 #include <functional>
+#include <memory>
+#include <utility>
 #include <cmath>
 #include <stdexcept>
 
@@ -20,6 +22,7 @@ namespace qvis {
 
 using cx  = std::complex<double>;
 using Vec = std::vector<cx>;
+struct Step;
 
 // ── Constants ──────────────────────────────────────────────────
 constexpr double INV_SQRT2 = 0.7071067811865475;
@@ -59,6 +62,96 @@ struct Gates {
     static void Rx(double theta, cx out[4]); // Rotation around X
     static void Rz(double theta, cx out[4]); // Rotation around Z
     static void I(cx out[4]);      // Identity
+};
+
+// ── Polymorphic circuit model ───────────────────────────────────
+// These classes let protocols store different gate behaviors behind one
+// common interface. New gate families can be added by deriving QuantumGate.
+class QuantumGate {
+public:
+    QuantumGate(std::string name, int target, int control,
+                std::string narrative, std::string math_hint = "");
+    virtual ~QuantumGate() = default;
+
+    virtual void apply(Vec& sv, int n_qubits) const = 0;
+
+    const std::string& name() const;
+    int target() const;
+    int control() const;
+    const std::string& narrative() const;
+    const std::string& math_hint() const;
+
+private:
+    std::string name_;
+    int target_;
+    int control_;
+    std::string narrative_;
+    std::string math_hint_;
+};
+
+using GateFactory = std::function<void(cx out[4])>;
+
+class SingleQubitGate : public QuantumGate {
+public:
+    SingleQubitGate(std::string name, int target, GateFactory factory,
+                    std::string narrative, std::string math_hint = "");
+    void apply(Vec& sv, int n_qubits) const override;
+
+private:
+    GateFactory factory_;
+};
+
+class ParallelSingleQubitGate : public QuantumGate {
+public:
+    ParallelSingleQubitGate(std::string name, std::vector<int> targets,
+                            GateFactory factory, std::string narrative,
+                            std::string math_hint = "");
+    void apply(Vec& sv, int n_qubits) const override;
+
+private:
+    std::vector<int> targets_;
+    GateFactory factory_;
+};
+
+class ControlledGate : public QuantumGate {
+public:
+    ControlledGate(std::string name, int control, int target, GateFactory factory,
+                   std::string narrative, std::string math_hint = "");
+    void apply(Vec& sv, int n_qubits) const override;
+
+private:
+    GateFactory factory_;
+};
+
+class PhaseOracleGate : public QuantumGate {
+public:
+    PhaseOracleGate(std::string name, int marked_state,
+                    std::string narrative, std::string math_hint = "");
+    void apply(Vec& sv, int n_qubits) const override;
+
+private:
+    int marked_state_;
+};
+
+class DiffusionGate : public QuantumGate {
+public:
+    DiffusionGate(std::string name, std::string narrative,
+                  std::string math_hint = "");
+    void apply(Vec& sv, int n_qubits) const override;
+};
+
+class Circuit {
+public:
+    Circuit(int n_qubits, Vec initial_state);
+
+    void add_gate(std::unique_ptr<QuantumGate> gate);
+    std::vector<Step> run(const std::string& initial_narrative,
+                          const std::string& initial_math_hint) const;
+
+private:
+    int n_qubits_;
+    Vec initial_state_;
+    std::vector<std::unique_ptr<QuantumGate>> gates_;
 };
 
 // ── Step-through data model ─────────────────────────────────────
