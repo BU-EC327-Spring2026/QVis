@@ -177,12 +177,37 @@ struct Protocol {
     std::vector<std::string> qubit_labels; // e.g. {"Alice","Bob","Charlie"}
 };
 
+// ── Polymorphic protocol model ──────────────────────────────────
+// A ProtocolBuilder is a reusable object that creates fresh Protocol instances.
+class ProtocolBuilder {
+public:
+    ProtocolBuilder(std::string id, std::string display_name);
+    virtual ~ProtocolBuilder() = default;
+
+    const std::string& id() const;
+    const std::string& display_name() const;
+    virtual Protocol build() const = 0;
+
+private:
+    std::string id_;
+    std::string display_name_;
+};
+
+struct ProtocolInfo {
+    std::string id;
+    std::string display_name;
+};
+
 // Build the core protocols. Returns fully populated Protocol.
 Protocol make_bell_state();
 Protocol make_teleportation();
 Protocol make_grover_2qubit();
 Protocol make_grover_3qubit();
 Protocol make_deutsch_jozsa();
+
+// Consistent protocol creation API used by the CLI/backend integration.
+std::vector<ProtocolInfo> available_protocols();
+Protocol make_protocol(const std::string& id);
 
 // ── JSON serialization ──────────────────────────────────────────
 // Serialize a Protocol to a compact JSON string for the REST endpoint.

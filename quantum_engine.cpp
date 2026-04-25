@@ -565,6 +565,66 @@ Protocol make_grover_3qubit() {
 }
 
 // ════════════════════════════════════════════════════════════════
+//  Polymorphic protocol registry
+// ════════════════════════════════════════════════════════════════
+
+ProtocolBuilder::ProtocolBuilder(std::string id, std::string display_name)
+    : id_(std::move(id)), display_name_(std::move(display_name)) {}
+
+const std::string& ProtocolBuilder::id() const { return id_; }
+const std::string& ProtocolBuilder::display_name() const { return display_name_; }
+
+class FunctionProtocolBuilder : public ProtocolBuilder {
+public:
+    FunctionProtocolBuilder(std::string id, std::string display_name,
+                            std::function<Protocol()> factory)
+        : ProtocolBuilder(std::move(id), std::move(display_name)),
+          factory_(std::move(factory)) {}
+
+    Protocol build() const override {
+        return factory_();
+    }
+
+private:
+    std::function<Protocol()> factory_;
+};
+
+static const std::vector<std::unique_ptr<ProtocolBuilder>>& protocol_registry() {
+    static const std::vector<std::unique_ptr<ProtocolBuilder>> registry = [] {
+        std::vector<std::unique_ptr<ProtocolBuilder>> builders;
+        builders.push_back(std::unique_ptr<ProtocolBuilder>(
+            new FunctionProtocolBuilder("bell", "Bell State", make_bell_state)));
+        builders.push_back(std::unique_ptr<ProtocolBuilder>(
+            new FunctionProtocolBuilder("teleport", "Quantum Teleportation", make_teleportation)));
+        builders.push_back(std::unique_ptr<ProtocolBuilder>(
+            new FunctionProtocolBuilder("grover", "Grover's Search", make_grover_2qubit)));
+        builders.push_back(std::unique_ptr<ProtocolBuilder>(
+            new FunctionProtocolBuilder("grover3", "Grover's (3-Qubit)", make_grover_3qubit)));
+        builders.push_back(std::unique_ptr<ProtocolBuilder>(
+            new FunctionProtocolBuilder("deutsch", "Deutsch-Jozsa", make_deutsch_jozsa)));
+        return builders;
+    }();
+    return registry;
+}
+
+std::vector<ProtocolInfo> available_protocols() {
+    std::vector<ProtocolInfo> infos;
+    for (const auto& builder : protocol_registry()) {
+        infos.push_back({builder->id(), builder->display_name()});
+    }
+    return infos;
+}
+
+Protocol make_protocol(const std::string& id) {
+    for (const auto& builder : protocol_registry()) {
+        if (builder->id() == id) {
+            return builder->build();
+        }
+    }
+    throw std::invalid_argument("unknown protocol id: " + id);
+}
+
+// ════════════════════════════════════════════════════════════════
 //  JSON serialization
 // ════════════════════════════════════════════════════════════════
 
